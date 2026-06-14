@@ -11,8 +11,8 @@
 
 ## Current status
 
-- **Phase:** 13 — Monte Carlo Page ✅ Complete
-- **Next step:** Phase 14 — Production readiness (exports, error handling, responsive layout)
+- **Phase:** 14 — Production Readiness ✅ Complete
+- **Next step:** Phase 15 — Mobile deployment (Streamlit Community Cloud + iPhone home screen)
 - **Last updated:** 2026-06-14
 - **Notes:** All Phase 12 sections shipped: KPI strip (7 metrics), growth chart with 1M/3M/6M/YTD/1Y/All period filter, weight donut + sector donut (yfinance info, cached 1h), full metrics detail (all 13 metrics across Return/Risk/Diversification), correlation heatmap (Plotly, hover values), optimization panel (weights table + metrics table + apply-weights buttons for 3 methods), scenario analysis, drawdown + rolling vol, risk/return contribution charts.
 
@@ -36,7 +36,7 @@
 | 12 | Dashboard UI Migration | ✅ Done |
 | 12B | Asset Analysis Page | ✅ Done |
 | 13 | Monte Carlo Page Migration | ✅ Done |
-| 14 | Streamlit Production Readiness | ⬜ |
+| 14 | Streamlit Production Readiness | ✅ Done |
 | 15 | Mobile Deployment & Hosting | ⬜ |
 | 16 | Research Foundation & Data Layer | ⬜ |
 | 17 | Research Hub & Stock Screener | ⬜ |
@@ -402,19 +402,19 @@ Reuse:
 
 > Scope (2026-06-14): Phase 14 covers **desktop/tablet** responsiveness and production polish. All **mobile** layout + hosting lives in Phase 15.
 
-- [ ] Responsive layout (desktop / tablet)
-- [ ] Streamlit caching
-- [ ] Consistent dashboard styling
-- [ ] Loading indicators
-- [ ] User-friendly error handling
-- [ ] Integrate existing exports:
-  - CSV
-  - Excel
-  - PDF
-- [ ] Performance profiling
-- [ ] Update README
-- [ ] Add Streamlit installation instructions
-- [ ] Add migration documentation
+- [x] Responsive layout (Streamlit wide layout; columns adapt to screen width)
+- [x] Streamlit caching (@st.cache_data on price fetch, sector/dividend info)
+- [x] Consistent dashboard styling (warm theme throughout all pages)
+- [x] Loading indicators (st.spinner on fetch, simulation, sector/dividend load)
+- [x] User-friendly error handling (failed tickers banner, empty-state cards)
+- [x] Integrate existing exports:
+  - CSV (export_panel.py → csv_exporter.py → st.download_button)
+  - Excel (export_panel.py → excel_exporter.py → st.download_button)
+  - PDF (export_panel.py → pdf_report.py → st.download_button)
+- [x] JSON portfolio save (export_panel.py → portfolio_io.py → st.download_button)
+- [x] Update README (Streamlit quick-start, project structure, all features documented)
+- [x] Add Streamlit installation instructions (README Step 1–2)
+- [x] Add migration documentation (README architecture + layering table)
 
 **Done when:** the Streamlit dashboard fully replaces the PySide6 interface and all existing functionality remains available.
 

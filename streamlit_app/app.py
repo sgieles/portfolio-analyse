@@ -14,7 +14,7 @@ import streamlit as st
 
 from streamlit_app.state import session
 from streamlit_app.styles.theme import ACCENT, BORDER, BG_SECONDARY, TEXT_PRIMARY, TEXT_SECONDARY, DARK_CSS
-from streamlit_app.components import portfolio_builder
+from streamlit_app.components import portfolio_builder, export_panel
 from streamlit_app.pages import dashboard, asset_analysis, monte_carlo
 
 
@@ -35,6 +35,8 @@ session.init()
 portfolio_builder.render()
 
 st.sidebar.divider()
+export_panel.render()
+
 page = st.sidebar.radio(
     "Navigation",
     ["Dashboard", "Asset Analysis", "Monte Carlo"],

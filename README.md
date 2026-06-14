@@ -1,92 +1,99 @@
 # Portfolio Analyser
 
-A professional desktop application for stock and ETF portfolio analysis. Fully local, no backend, no subscriptions.
+A professional portfolio analysis tool for stocks and ETFs. Runs **fully locally** — no backend, no subscriptions.
 
-![Dashboard](docs/screenshot_placeholder.png)
+Two interfaces ship from the same codebase:
+
+| Interface | Technology | Access |
+|-----------|-----------|--------|
+| **Web app** (primary) | Streamlit + Plotly | Browser on any device · iPhone / Android home screen |
+| **Desktop app** | PySide6 (Qt 6) | Windows / macOS / Linux native window |
 
 ---
 
 ## Features
 
-### Portfolio Dashboard (Tab 1)
-- Build a portfolio from any stock or ETF ticker available on Yahoo Finance
-- Adjust weights; all metrics and charts refresh automatically in under one second
-- **14 metric cards** — return, risk and diversification in one glance
+### Dashboard
+- Build a portfolio from any ticker on Yahoo Finance
+- **7 KPI cards**: CAGR · Ann. Return · Volatility · Sharpe · Sortino · Max Drawdown · Health Score
 - **Portfolio Health Score** (0–100) based on Sharpe, drawdown, volatility, diversification and concentration
-- **5 embedded charts**: Growth from €10 000 vs benchmark · Efficient Frontier · Drawdown · Rolling Volatility · Risk Contribution
-- **3 portfolio optimizers**: Maximum Sharpe · Minimum Variance · Black-Litterman
-- Preview optimized weights before applying; one click to apply and re-run
+- **Period selector**: 1M · 3M · 6M · YTD · 1Y · All — growth chart and risk charts follow the selection
+- **Allocation view**: Portfolio-weight donut + Sector-allocation donut (yfinance data)
+- **Full metric set**: Expected Return · CAGR · CAPM Return · Volatility · Sharpe · Sortino · Beta · Max DD · VaR 95% · VaR 99% · CVaR · Diversification Score · Health Score
+- **Correlation matrix**: interactive Plotly heatmap with value annotations
 
-### Asset Analysis (Tab 2)
-- Sortable table with 15 per-asset columns: CAGR, Return, Volatility, Sharpe, Sortino, Beta, Max Drawdown, VaR 95/99, CVaR, Risk Contribution, Return Contribution
+### Optimisation Panel
+- **3 optimizers**: Maximum Sharpe · Minimum Variance · Black-Litterman
+- Side-by-side weight and metric comparison table for all methods
+- **Apply weights** — one click rewrites the portfolio and re-runs all analytics
+- **Efficient Frontier** chart with all four portfolio points marked
 
-### Correlation Analysis (Tab 3)
-- Correlation heatmap · Covariance heatmap · Hierarchical correlation clustering
-
-### Scenario Analysis (Tab 4)
-- Stress test against Bull Market (+15 %) · Mild Recession (−10 %) · Recession (−20 %) · Severe Crash (−35 %)
+### Scenario Analysis
+- Stress-test: Bull (+15 %) · Mild Recession (−10 %) · Recession (−20 %) · Severe Crash (−35 %)
 - Beta-weighted portfolio impact with correlation-stressed volatility estimates
+- Bar chart + impact table shown together
 
-### Monte Carlo (Tab 5)
-- Configurable: 100–10 000 simulations, 1–30 year horizon
-- Outputs: median · mean · 5th/95th percentile · probability of loss
-- Spaghetti paths chart + ending-value histogram with confidence band
+### Asset Analysis Page
+- **Sortable table** — 16 columns: Ticker · Weight · Price · CAGR · Return · Volatility · Sharpe · Sortino · Beta · Corr. Benchmark · Max DD · VaR 95% · CVaR · Dividend Yield · Risk Contrib. · Return Contrib.
+- **Normalised performance chart**: all assets vs benchmark indexed to 100
+- **Risk/Return scatter**: bubble size = portfolio weight
+- **Sharpe & Sortino bars** with colour thresholds
+- **Per-asset expandable detail**: 12 metric cards + mini price chart
+
+### Monte Carlo Page
+- Configurable: 100–5 000 simulations, 1–30 year horizon
+- **6 KPI cards**: Median · Mean · 5th pct · 95th pct · Prob. of Loss · Median Gain
+- **Paths chart**: fan of sample paths with 5th–95th pct confidence band fill
+- **Ending-value histogram**: loss-zone shading, percentile markers, statistics table
 
 ### Export
 | Format | Contents |
 |--------|----------|
-| **CSV** | Metadata · Portfolio metrics · Per-asset table · Optimization weights & metrics |
-| **Excel** | 4 styled sheets: Summary · Assets · Optimization · Scenarios |
+| **CSV** | Metadata · Portfolio metrics · Per-asset table · Optimisation weights & metrics |
+| **Excel** | 4 styled sheets: Summary · Assets · Optimisation · Scenarios |
 | **PDF** | 7-section professional report with embedded charts |
-
-### Save & Load
-JSON portfolio files store tickers, weights, benchmark and analysis period.
+| **JSON** | Portfolio save/load (tickers, weights, benchmark, period) |
 
 ---
 
-## Installation
+## Quick start — Web app (recommended)
 
-### Prerequisites
-
-- **Python 3.12 or later** — download from [python.org](https://www.python.org/downloads/)
-- **Git** (optional, to clone the repo)
-
-### Step 1 — Get the source
+### Step 1 — Clone and install
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/sgieles/portfolio-analyse.git
 cd portfolio-analyse
-```
-
-Or download and unzip the archive.
-
-### Step 2 — Create a virtual environment
-
-**Windows (PowerShell)**
-```powershell
 python -m venv .venv
-.venv\Scripts\Activate.ps1
-```
 
-**macOS / Linux**
-```bash
-python3 -m venv .venv
+# Windows
+.venv\Scripts\activate
+
+# macOS / Linux
 source .venv/bin/activate
-```
 
-### Step 3 — Install dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
-This installs approximately 20 packages including PySide6, pandas, numpy, matplotlib, seaborn, PyPortfolioOpt, yfinance, reportlab and openpyxl.
+### Step 2 — Run Streamlit
 
-### Step 4 — Launch
+```bash
+streamlit run streamlit_app/app.py
+```
+
+Open **http://localhost:8501** in your browser.
+
+> **iPhone / Android**: open `http://<your-local-ip>:8501` in Safari or Chrome,
+> then use **Add to Home Screen** to install it as a PWA-style icon.
+
+---
+
+## Quick start — Desktop app (PySide6)
 
 ```bash
 python main.py
 ```
+
+Requires the same virtual environment. Launches a native dark-themed window with 5 tabs.
 
 ---
 
@@ -96,32 +103,12 @@ python main.py
 pytest
 ```
 
-279 tests covering analytics, optimization, charts, data service, models, validators and exporters. The test suite is fully offline — no network calls.
-
-To see per-test output:
+311 tests covering analytics, optimisation, charts, data service, models, validators and exporters. The test suite is fully offline — no network calls.
 
 ```bash
-pytest -v
+pytest -v                           # verbose output
+pytest --cov=. --cov-report=term-missing   # coverage
 ```
-
-To measure coverage:
-
-```bash
-pytest --cov=. --cov-report=term-missing
-```
-
----
-
-## Quick start
-
-1. Launch the app with `python main.py`.
-2. In the **Portfolio Builder** (left panel), type a ticker (e.g. `AAPL`) and press **Add** or Enter.
-3. Add several more tickers. Weights default to equal weighting.
-4. Choose a **Benchmark** (SPY / VTI / ACWI) and **Period** (1y / 3y / 5y / 10y / Max).
-5. Click **Analyze Portfolio**. A progress message appears in the status bar while data is fetched and metrics are computed.
-6. Adjust any weight in the table — charts and metrics refresh automatically.
-7. In Section C, select an optimizer, then click **Apply** to switch to optimized weights.
-8. Export a PDF via **Export → Export PDF Report…**.
 
 ---
 
@@ -129,22 +116,27 @@ pytest --cov=. --cov-report=term-missing
 
 ```
 portfolio-analyse/
-├── main.py                    # Entry point
+├── main.py                    # Desktop app entry point (PySide6)
 ├── requirements.txt
 ├── README.md
-├── ui/                        # PySide6 widgets (no calculations)
-│   ├── main_window.py
-│   ├── dashboard_tab.py       # Primary workspace
-│   ├── asset_analysis_tab.py
-│   ├── correlation_tab.py
-│   ├── scenario_tab.py
-│   ├── monte_carlo_tab.py
-│   ├── theme.py               # Dark stylesheet + matplotlib theme
-│   └── widgets/
-│       ├── metric_card.py
-│       └── chart_canvas.py
+│
+├── streamlit_app/             # Web app (Streamlit)
+│   ├── app.py                 # Entry point — run with: streamlit run streamlit_app/app.py
+│   ├── pages/
+│   │   ├── dashboard.py       # Main dashboard (all sections)
+│   │   ├── asset_analysis.py  # Per-asset table + charts
+│   │   └── monte_carlo.py     # MC simulation
+│   ├── components/
+│   │   ├── portfolio_builder.py  # Sidebar: add/remove tickers, weights
+│   │   ├── analysis_runner.py    # Fetch + compute (cached)
+│   │   └── export_panel.py       # CSV / Excel / PDF / JSON download buttons
+│   ├── state/
+│   │   └── session.py         # st.session_state accessors
+│   └── styles/
+│       └── theme.py           # Warm/light colour palette + Plotly template + CSS
+│
 ├── analytics/                 # Pure functions (no Qt, no I/O)
-│   ├── returns.py             # CAGR, annualized return, CAPM
+│   ├── returns.py             # CAGR, annualised return, CAPM
 │   ├── risk.py                # Volatility, Sharpe, Sortino, VaR, CVaR, Beta
 │   ├── diversification.py     # Correlation, diversification score, contributions
 │   ├── scenario.py            # Stress-test analytics
@@ -153,7 +145,7 @@ portfolio-analyse/
 ├── optimization/
 │   ├── optimizers.py          # Max Sharpe, Min Variance, Black-Litterman
 │   └── efficient_frontier.py  # Frontier sampling
-├── charts/                    # Draw functions (take data + Axes, return nothing)
+├── charts/                    # Matplotlib draw functions (desktop app)
 │   ├── growth.py
 │   ├── frontier.py
 │   ├── drawdown.py
@@ -168,7 +160,7 @@ portfolio-analyse/
 │   ├── portfolio.py
 │   ├── settings.py
 │   └── results.py
-├── reports/                   # Export
+├── reports/                   # Export (shared by both interfaces)
 │   ├── csv_exporter.py
 │   ├── excel_exporter.py
 │   └── pdf_report.py
@@ -176,22 +168,23 @@ portfolio-analyse/
 │   ├── constants.py
 │   ├── logging.py
 │   └── validators.py
-└── tests/                     # pytest suite (279 tests)
+├── ui/                        # PySide6 widgets (desktop only)
+└── tests/                     # pytest suite (311 tests)
 ```
 
 ---
 
-## Architecture rules
+## Architecture
 
 The codebase enforces strict layering:
 
 | Layer | May import | May NOT import |
 |-------|-----------|----------------|
-| `ui` | analytics, services, charts, models | — |
-| `analytics`, `optimization`, `charts` | models, utils, numpy/pandas | Qt, network, disk |
-| `services` | models, utils | Qt |
+| `streamlit_app`, `ui` | analytics · services · charts · models | — |
+| `analytics` · `optimization` · `charts` | models · utils · scientific stack | Qt · network · disk |
+| `services` | models · utils | Qt |
 
-This means every calculation in `analytics/` is a pure function that can be unit-tested without launching the UI.
+Every calculation in `analytics/` is a pure function testable without any UI.
 
 ---
 
@@ -208,8 +201,8 @@ This means every calculation in `analytics/` is a pure function that can be unit
 | VaR | Historical method, positive loss magnitude |
 | CVaR | Mean of losses beyond VaR threshold |
 | Growth charts | Start value €10 000 |
-| Benchmarks | SPY, VTI, ACWI |
-| Periods | 1y, 3y, 5y, 10y, max |
+| Benchmarks | SPY · VTI · ACWI |
+| Periods | 1y · 3y · 5y · 10y · max |
 
 ---
 
@@ -218,13 +211,15 @@ This means every calculation in `analytics/` is a pure function that can be unit
 | Package | Purpose |
 |---------|---------|
 | Python 3.12+ | Runtime |
-| PySide6 | GUI framework (Qt 6) |
+| Streamlit 1.x | Web interface |
+| Plotly | Interactive charts (web) |
+| PySide6 | Desktop GUI framework (Qt 6) |
 | pandas | Price/return DataFrames |
 | numpy | Numerical computation |
 | scipy | Downside deviation, optimisation helpers |
 | statsmodels | Statistical helpers |
 | yfinance | Yahoo Finance price data |
-| matplotlib + seaborn | Embedded charts |
+| matplotlib + seaborn | Charts for desktop app and PDF export |
 | PyPortfolioOpt | Max Sharpe, Min Variance, Black-Litterman |
 | reportlab | PDF generation |
 | openpyxl | Excel workbook generation |
@@ -233,14 +228,17 @@ This means every calculation in `analytics/` is a pure function that can be unit
 
 ## Troubleshooting
 
-**The app opens but tickers show "not found"**
-Make sure you have an active internet connection for the first fetch. After that, prices are cached locally.
+**Tickers show "not found"**
+Make sure you have an active internet connection for the first fetch. After that, prices are cached locally in `.cache/`.
 
-**`pip install -r requirements.txt` fails on PySide6**
-PySide6 requires Python 3.9–3.13. Check your Python version with `python --version`.
+**`pip install` fails on PySide6**
+PySide6 requires Python 3.9–3.13. Check with `python --version`. If you only need the web app, PySide6 is optional.
 
 **PDF export is slow**
-Generating the PDF renders all five charts into memory via matplotlib. On a slow machine a 5-page PDF may take 5–10 seconds; this is normal.
+Generating the PDF renders all charts via matplotlib. On a slow machine it may take 5–10 seconds; this is normal.
 
 **Tests fail with import errors**
 Make sure the virtual environment is activated before running `pytest`.
+
+**Streamlit: port 8501 already in use**
+Run on a different port: `streamlit run streamlit_app/app.py --server.port 8502`

@@ -144,8 +144,8 @@ def render() -> bool:
 
     st.sidebar.divider()
 
-    # ── Save / Load ────────────────────────────────────────────────────────────
-    st.sidebar.markdown("**Save / Load**")
+    # ── Load portfolio JSON ────────────────────────────────────────────────────
+    st.sidebar.markdown("**Load Portfolio**")
     uploaded = st.sidebar.file_uploader("Load portfolio JSON", type="json", key="pf_upload")
     if uploaded is not None:
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:

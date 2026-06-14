@@ -11,10 +11,10 @@
 
 ## Current status
 
-- **Phase:** 11 — Streamlit Migration
-- **Next step:** Create Streamlit application shell and integrate existing analytics engine
+- **Phase:** 12 — Dashboard UI Migration ✅ Complete
+- **Next step:** Phase 12B — Asset Analysis page (sortable table, all per-asset metrics)
 - **Last updated:** 2026-06-14
-- **Notes:** Desktop PySide6 application is complete. New objective is migrating the presentation layer to a Streamlit dashboard based on the uploaded portfolio dashboard mockup while preserving analytics, optimization, exports and test coverage.
+- **Notes:** All Phase 12 sections shipped: KPI strip (7 metrics), growth chart with 1M/3M/6M/YTD/1Y/All period filter, weight donut + sector donut (yfinance info, cached 1h), full metrics detail (all 13 metrics across Return/Risk/Diversification), correlation heatmap (Plotly, hover values), optimization panel (weights table + metrics table + apply-weights buttons for 3 methods), scenario analysis, drawdown + rolling vol, risk/return contribution charts.
 
 ---
 
@@ -32,8 +32,8 @@
 | 8 | GUI: remaining tabs | ✅ Done |
 | 9 | Export & persistence | ✅ Done |
 | 10 | Tests, docs, polish, bonus | ✅ Done |
-| 11 | Streamlit Architecture & Integration | ⬜ Current |
-| 12 | Dashboard UI Migration | ⬜ |
+| 11 | Streamlit Architecture & Integration | ✅ Done |
+| 12 | Dashboard UI Migration | ✅ Done |
 | 12B | Asset Analysis Page | ⬜ |
 | 13 | Monte Carlo Page Migration | ⬜ |
 | 14 | Streamlit Production Readiness | ⬜ |
@@ -178,16 +178,16 @@ _All currently-known open questions have been resolved (see Decision log, 2026-0
 
 ### Section A — Portfolio Construction
 
-- [ ] Portfolio Builder sidebar
-- [ ] Add ticker
-- [ ] Remove ticker
-- [ ] Weight sliders
-- [ ] Normalize weights
-- [ ] Equal Weight
-- [ ] Save Portfolio
-- [ ] Load Portfolio
-- [ ] Benchmark selector
-- [ ] Analysis period selector
+- [x] Portfolio Builder sidebar
+- [x] Add ticker
+- [x] Remove ticker
+- [x] Weight sliders
+- [x] Normalize weights
+- [x] Equal Weight
+- [x] Save Portfolio
+- [x] Load Portfolio
+- [x] Benchmark selector
+- [x] Analysis period selector
 
 **Visual target:** Construction panel from mockup.
 
@@ -195,19 +195,19 @@ _All currently-known open questions have been resolved (see Decision log, 2026-0
 
 ### Section B — Portfolio Statistics
 
-- [ ] Expected Return
-- [ ] CAGR
-- [ ] Annualized Return
-- [ ] Volatility
-- [ ] Sharpe Ratio
-- [ ] Sortino Ratio
-- [ ] Beta
-- [ ] Maximum Drawdown
-- [ ] VaR 95%
-- [ ] VaR 99%
-- [ ] CVaR
-- [ ] Diversification Score
-- [ ] Portfolio Health Score
+- [x] Expected Return
+- [x] CAGR
+- [x] Annualized Return
+- [x] Volatility
+- [x] Sharpe Ratio
+- [x] Sortino Ratio
+- [x] Beta
+- [x] Maximum Drawdown
+- [x] VaR 95%
+- [x] VaR 99%
+- [x] CVaR
+- [x] Diversification Score
+- [x] Portfolio Health Score
 
 **Visual target:** KPI cards from mockup.
 
@@ -217,14 +217,15 @@ _All currently-known open questions have been resolved (see Decision log, 2026-0
 
 Reuse existing analytics and chart logic.
 
-- [ ] Portfolio vs Benchmark chart
-- [ ] Benchmark visibility toggle
-- [ ] Time period selector:
+- [x] Portfolio vs Benchmark chart
+- [x] Benchmark visibility toggle
+- [x] Time period selector:
   - 1M
+  - 3M
   - 6M
   - YTD
   - 1Y
-  - 5Y
+  - All
 
 **Visual target:** Performance card from mockup.
 
@@ -234,9 +235,9 @@ Reuse existing analytics and chart logic.
 
 ### Section D — Allocation Analysis
 
-- [ ] Sector allocation view
-- [ ] Region allocation view
-- [ ] Toggle between views
+- [x] Sector allocation view (yfinance info, cached 1h)
+- [x] Portfolio weight donut view
+- [ ] Region allocation view (deferred — yfinance does not expose region reliably)
 
 **Visual target:** Allocation panel from mockup.
 
@@ -250,10 +251,10 @@ Reuse:
 
 Display:
 
-- [ ] Current Portfolio
-- [ ] Maximum Sharpe Portfolio
-- [ ] Minimum Variance Portfolio
-- [ ] Black-Litterman Portfolio
+- [x] Current Portfolio
+- [x] Maximum Sharpe Portfolio
+- [x] Minimum Variance Portfolio
+- [x] Black-Litterman Portfolio
 
 **Visual target:** Efficient Frontier chart from mockup.
 
@@ -267,16 +268,16 @@ Reuse:
 
 Display:
 
-- [ ] Current vs Optimized Weights
-- [ ] Current vs Optimized Metrics
-- [ ] Preview Optimized Portfolio
-- [ ] Apply Optimized Weights
+- [x] Current vs Optimized Weights
+- [x] Current vs Optimized Metrics
+- [x] Preview Optimized Portfolio
+- [x] Apply Optimized Weights
 
 Optimization methods:
 
-- [ ] Maximum Sharpe
-- [ ] Minimum Variance
-- [ ] Black-Litterman
+- [x] Maximum Sharpe
+- [x] Minimum Variance
+- [x] Black-Litterman
 
 **Visual target:** Optimization card from mockup.
 
@@ -291,9 +292,9 @@ Reuse:
 
 Display:
 
-- [ ] Correlation heatmap
-- [ ] Hover values
-- [ ] Color scale legend
+- [x] Correlation heatmap
+- [x] Hover values
+- [x] Color scale legend
 
 **Visual target:** Correlation Matrix card from mockup.
 
@@ -307,9 +308,9 @@ Reuse:
 
 Display:
 
-- [ ] Historical drawdown chart
-- [ ] Maximum drawdown marker
-- [ ] Recovery period visualization
+- [x] Historical drawdown chart
+- [x] Maximum drawdown marker
+- [ ] Recovery period visualization (deferred)
 
 **Visual target:** Drawdown chart from mockup.
 
@@ -323,8 +324,8 @@ Reuse:
 
 Display:
 
-- [ ] Rolling volatility chart
-- [ ] Average volatility marker
+- [x] Rolling volatility chart
+- [x] Average volatility marker
 
 **Visual target:** Rolling Volatility chart from mockup.
 
@@ -340,12 +341,12 @@ Reuse:
 
 Display:
 
-- [ ] Bull Market +15%
-- [ ] Mild Recession −10%
-- [ ] Recession −20%
-- [ ] Severe Crash −35%
-- [ ] Impact table: portfolio value, expected return, volatility
-- [ ] Scenario impact chart
+- [x] Bull Market +15%
+- [x] Mild Recession −10%
+- [x] Recession −20%
+- [x] Severe Crash −35%
+- [x] Impact table: portfolio value, expected return, volatility
+- [x] Scenario impact chart
 
 Uses historical betas and stressed correlations.
 

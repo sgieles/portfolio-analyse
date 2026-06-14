@@ -1,4 +1,4 @@
-PySide6>=6.10
+# Core analytics stack (used by both the web app and desktop app)
 pandas>=2.2
 numpy>=1.26
 scipy>=1.13
@@ -7,7 +7,13 @@ yfinance>=0.2.40
 matplotlib>=3.9
 seaborn>=0.13
 PyPortfolioOpt>=1.5.5
-pytest>=8.2
 openpyxl>=3.1
 reportlab>=4.2
 requests>=2.32
+
+# Web application
+streamlit>=1.35
+plotly>=5.20
+
+# Test runner
+pytest>=8.2

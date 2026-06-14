@@ -56,9 +56,42 @@ Two interfaces ship from the same codebase:
 
 ---
 
-## Quick start — Web app (recommended)
+## Deployment — Streamlit Community Cloud (free, public URL)
 
-### Step 1 — Clone and install
+This is the easiest way to access the app from iPhone and any browser.
+
+### Step 1 — Fork or push the repo to GitHub
+
+The repo is already at **https://github.com/sgieles/portfolio-analyse**.
+
+### Step 2 — Sign in to Streamlit Community Cloud
+
+1. Go to **https://share.streamlit.io**
+2. Click **Sign in with GitHub** and authorise with the `sgieles` account.
+
+### Step 3 — Deploy
+
+1. Click **New app**.
+2. Select repository: `sgieles/portfolio-analyse`
+3. Branch: `master`
+4. Main file path: `streamlit_app/app.py`
+5. Click **Deploy!**
+
+Streamlit Cloud will install `requirements.txt`, start the app and give you a public URL like `https://sgieles-portfolio-analyse-streamlit-app-app-xxxx.streamlit.app`.
+
+### Step 4 — Add to iPhone home screen
+
+1. Open the public URL in **Safari**.
+2. Tap the **Share** icon → **Add to Home Screen**.
+3. The app now appears as an icon and opens full-screen like a native app.
+
+> Android: open in Chrome → three-dot menu → **Add to Home Screen**.
+
+---
+
+## Quick start — Run locally
+
+### Web app (recommended)
 
 ```bash
 git clone https://github.com/sgieles/portfolio-analyse.git
@@ -72,28 +105,22 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
-```
-
-### Step 2 — Run Streamlit
-
-```bash
 streamlit run streamlit_app/app.py
 ```
 
 Open **http://localhost:8501** in your browser.
 
-> **iPhone / Android**: open `http://<your-local-ip>:8501` in Safari or Chrome,
-> then use **Add to Home Screen** to install it as a PWA-style icon.
+> **Local iPhone access**: find your PC's local IP (`ipconfig` / `ifconfig`),
+> then open `http://<local-ip>:8501` in Safari on the same Wi-Fi network.
 
----
-
-## Quick start — Desktop app (PySide6)
+### Desktop app (PySide6)
 
 ```bash
+pip install -r requirements-desktop.txt   # adds PySide6 on top of requirements.txt
 python main.py
 ```
 
-Requires the same virtual environment. Launches a native dark-themed window with 5 tabs.
+Launches a native dark-themed window with 5 tabs.
 
 ---
 

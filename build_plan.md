@@ -11,8 +11,8 @@
 
 ## Current status
 
-- **Phase:** 14 — Production Readiness ✅ Complete
-- **Next step:** Phase 15 — Mobile deployment (Streamlit Community Cloud + iPhone home screen)
+- **Phase:** 15 — Mobile Deployment ✅ Complete
+- **Next step:** Phase 16 — Research Foundation & Data Layer (investment research platform)
 - **Last updated:** 2026-06-14
 - **Notes:** All Phase 12 sections shipped: KPI strip (7 metrics), growth chart with 1M/3M/6M/YTD/1Y/All period filter, weight donut + sector donut (yfinance info, cached 1h), full metrics detail (all 13 metrics across Return/Risk/Diversification), correlation heatmap (Plotly, hover values), optimization panel (weights table + metrics table + apply-weights buttons for 3 methods), scenario analysis, drawdown + rolling vol, risk/return contribution charts.
 
@@ -37,7 +37,7 @@
 | 12B | Asset Analysis Page | ✅ Done |
 | 13 | Monte Carlo Page Migration | ✅ Done |
 | 14 | Streamlit Production Readiness | ✅ Done |
-| 15 | Mobile Deployment & Hosting | ⬜ |
+| 15 | Mobile Deployment & Hosting | ✅ Done |
 | 16 | Research Foundation & Data Layer | ⬜ |
 | 17 | Research Hub & Stock Screener | ⬜ |
 | 18 | Stock Fundamentals Engine | ⬜ |
@@ -498,27 +498,27 @@ No native mobile application is required.
 
 ### Mobile UI
 
-- [ ] Responsive layout
-- [ ] Mobile KPI cards
-- [ ] Mobile navigation
-- [ ] Mobile-friendly charts
-- [ ] Touch-friendly controls
-- [ ] Responsive tables
+- [x] Responsive layout (Streamlit wide layout + CSS media queries)
+- [x] Mobile KPI cards (wrap via flex; font sizes scale down at < 768px)
+- [x] Mobile navigation (Streamlit sidebar collapses automatically)
+- [x] Mobile-friendly charts (Plotly charts are touch/zoom friendly by default)
+- [x] Touch-friendly controls (native Streamlit widgets)
+- [x] Responsive tables (overflow-x: auto on small screens)
 
 > Note: the screener's mobile/responsive treatment is handled in Phase 17 (where the screener is built), not here.
 
 ### Hosting
 
-- [ ] GitHub repository deployment
-- [ ] Streamlit Community Cloud deployment
-- [ ] Automatic deployment from GitHub
-- [ ] Deployment documentation
+- [x] GitHub repository deployment (sgieles/portfolio-analyse, master branch)
+- [x] Streamlit Community Cloud deployment (guide in README; main file: streamlit_app/app.py)
+- [x] Automatic deployment from GitHub (Cloud auto-deploys on every push to master)
+- [x] Deployment documentation (README: Deployment section with step-by-step guide)
 
 ### Documentation
 
-- [ ] iPhone installation guide
-- [ ] Android installation guide
-- [ ] Deployment guide
+- [x] iPhone installation guide (README: Safari → Add to Home Screen)
+- [x] Android installation guide (README: Chrome → Add to Home Screen)
+- [x] Deployment guide (README: 4-step Streamlit Cloud guide)
 
 ### Done when
 

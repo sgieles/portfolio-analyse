@@ -1,0 +1,16 @@
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+# Warm light theme — matches the CSS palette in streamlit_app/styles/theme.py
+base = "light"
+primaryColor = "#c2410c"
+backgroundColor = "#f3efe7"
+secondaryBackgroundColor = "#fffdf9"
+textColor = "#231d15"
+font = "sans serif"

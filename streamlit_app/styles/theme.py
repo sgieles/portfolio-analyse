@@ -193,5 +193,32 @@ hr {{
     border-radius: 6px;
     background-color: {BG_TERTIARY};
 }}
+
+/* ─── Mobile / small screen ─────────────────────────────────────────────── */
+@media (max-width: 768px) {{
+    .block-container {{
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }}
+    [data-testid="stMetricValue"] {{
+        font-size: 18px !important;
+    }}
+    [data-testid="stRadio"] > div {{
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+    }}
+    .stDownloadButton > button {{
+        width: 100%;
+    }}
+    .stDataFrame {{
+        overflow-x: auto;
+    }}
+}}
+
+@media (max-width: 480px) {{
+    h1 {{ font-size: 20px !important; }}
+    h2 {{ font-size: 17px !important; }}
+    h3 {{ font-size: 15px !important; }}
+}}
 </style>
 """

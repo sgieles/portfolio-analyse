@@ -118,6 +118,7 @@ def run_analysis() -> AnalysisResult | None:
                 var_99=historical_var(a_rets, 0.99),
                 cvar=historical_cvar(a_rets, 0.95),
                 latest_price=float(prices[ticker].iloc[-1]),
+                benchmark_correlation=float(a_rets.corr(bench_rets_a)),
                 risk_contribution=risk_c.get(ticker, float("nan")),
                 return_contribution=ret_c.get(ticker, float("nan")),
             )

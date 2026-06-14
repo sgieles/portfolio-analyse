@@ -11,8 +11,8 @@
 
 ## Current status
 
-- **Phase:** 12 — Dashboard UI Migration ✅ Complete
-- **Next step:** Phase 12B — Asset Analysis page (sortable table, all per-asset metrics)
+- **Phase:** 13 — Monte Carlo Page ✅ Complete
+- **Next step:** Phase 14 — Production readiness (exports, error handling, responsive layout)
 - **Last updated:** 2026-06-14
 - **Notes:** All Phase 12 sections shipped: KPI strip (7 metrics), growth chart with 1M/3M/6M/YTD/1Y/All period filter, weight donut + sector donut (yfinance info, cached 1h), full metrics detail (all 13 metrics across Return/Risk/Diversification), correlation heatmap (Plotly, hover values), optimization panel (weights table + metrics table + apply-weights buttons for 3 methods), scenario analysis, drawdown + rolling vol, risk/return contribution charts.
 
@@ -34,8 +34,8 @@
 | 10 | Tests, docs, polish, bonus | ✅ Done |
 | 11 | Streamlit Architecture & Integration | ✅ Done |
 | 12 | Dashboard UI Migration | ✅ Done |
-| 12B | Asset Analysis Page | ⬜ |
-| 13 | Monte Carlo Page Migration | ⬜ |
+| 12B | Asset Analysis Page | ✅ Done |
+| 13 | Monte Carlo Page Migration | ✅ Done |
 | 14 | Streamlit Production Readiness | ⬜ |
 | 15 | Mobile Deployment & Hosting | ⬜ |
 | 16 | Research Foundation & Data Layer | ⬜ |
@@ -365,12 +365,12 @@ Display a sortable table:
 | Ticker | Weight | CAGR | Return | Volatility | Sharpe | Beta | Max Drawdown | VaR95 |
 |--------|--------|-----:|-------:|-----------:|-------:|-----:|-------------:|------:|
 
-- [ ] Sortable on all columns
-- [ ] Latest price
-- [ ] Correlation with benchmark
-- [ ] Dividend yield where available
-- [ ] Risk contribution per asset
-- [ ] Return contribution per asset
+- [x] Sortable on all columns
+- [x] Latest price
+- [x] Correlation with benchmark
+- [x] Dividend yield where available (yfinance info, cached 1h)
+- [x] Risk contribution per asset
+- [x] Return contribution per asset
 
 **Technology:** Plotly + Streamlit dataframe.
 
@@ -384,13 +384,13 @@ Reuse:
 
 - analytics/monte_carlo.py
 
-- [ ] Simulation controls
-- [ ] Horizon selector
-- [ ] Number of simulations selector
-- [ ] Confidence interval display
-- [ ] Median path
-- [ ] Sample simulation paths
-- [ ] Ending-value distribution
+- [x] Simulation controls
+- [x] Horizon selector
+- [x] Number of simulations selector
+- [x] Confidence interval display (5th–95th pct band fill)
+- [x] Median path
+- [x] Sample simulation paths (up to 120 shown)
+- [x] Ending-value distribution (histogram + percentile table)
 
 **Visual target:** Monte Carlo screen from mockup.
 

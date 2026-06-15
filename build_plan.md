@@ -11,9 +11,9 @@
 
 ## Current status
 
-- **Phase:** 15 — Mobile Deployment ✅ Complete
-- **Next step:** Phase 16 — Research Foundation & Data Layer (investment research platform)
-- **Last updated:** 2026-06-14
+- **Phase:** 16 — Research Foundation & Data Layer ✅ Complete
+- **Next step:** Phase 17 — Research Hub & Stock Screener
+- **Last updated:** 2026-06-15
 - **Notes:** All Phase 12 sections shipped: KPI strip (7 metrics), growth chart with 1M/3M/6M/YTD/1Y/All period filter, weight donut + sector donut (yfinance info, cached 1h), full metrics detail (all 13 metrics across Return/Risk/Diversification), correlation heatmap (Plotly, hover values), optimization panel (weights table + metrics table + apply-weights buttons for 3 methods), scenario analysis, drawdown + rolling vol, risk/return contribution charts.
 
 ---
@@ -38,7 +38,7 @@
 | 13 | Monte Carlo Page Migration | ✅ Done |
 | 14 | Streamlit Production Readiness | ✅ Done |
 | 15 | Mobile Deployment & Hosting | ✅ Done |
-| 16 | Research Foundation & Data Layer | ⬜ |
+| 16 | Research Foundation & Data Layer | ✅ Done |
 | 17 | Research Hub & Stock Screener | ⬜ |
 | 18 | Stock Fundamentals Engine | ⬜ |
 | 19 | Valuation Engine | ⬜ |
@@ -549,8 +549,8 @@ Research Hub becomes the primary application entry point. **Two hubs only** — 
 
 **Navigation rollout (interim flat → hub-based):** Phases 11–13 ship a flat Portfolio Hub nav (Dashboard / Asset Analysis / Monte Carlo). The two-hub shell is introduced **here in Phase 16**: a hub-level switcher wrapping the existing Portfolio Hub pages, with the Research Hub added as the second hub. The default landing stays the Dashboard until the Research Hub has content; the entry-point switch to Research Hub happens in **Phase 17**.
 
-- [ ] Two-hub navigation shell (Research Hub / Portfolio Hub switcher)
-- [ ] Move existing Streamlit pages under Portfolio Hub
+- [x] Two-hub navigation shell (Research Hub / Portfolio Hub switcher in sidebar)
+- [x] Move existing Streamlit pages under Portfolio Hub
 
 Portfolio Hub remains focused on:
 
@@ -604,23 +604,23 @@ Implementation notes:
 
 ### Research Data Layer
 
-- [ ] Financial statement ingestion
-- [ ] Quarterly financial storage
-- [ ] Annual financial storage
-- [ ] Sector mapping
-- [ ] Industry mapping
-- [ ] Insider transaction ingestion
-- [ ] Sector intelligence ingestion
-- [ ] Macroeconomic data ingestion
-- [ ] Research caching layer (nightly batch refresh — see *Research Data Source* refresh strategy)
+- [x] Financial statement ingestion (SEC EDGAR companyfacts XBRL parser + yfinance fallback)
+- [x] Annual financial storage (research/cache/research_cache.py, JSON, 24h TTL)
+- [ ] Quarterly financial storage (deferred to Phase 18 — annual data sufficient for screener)
+- [x] Sector mapping (via yfinance profile + EDGAR CIK map)
+- [x] Industry mapping (via yfinance profile)
+- [ ] Insider transaction ingestion (edgar_client.get_submissions() stub ready — Phase 20)
+- [ ] Sector intelligence ingestion (Phase 20)
+- [ ] Macroeconomic data ingestion (ECB SDMX — Phase 20)
+- [x] Research caching layer (research/cache/research_cache.py; per-CIK timestamps, 24h TTL)
 
 ### Watchlists
 
-- [ ] Create watchlist
-- [ ] Add asset
-- [ ] Remove asset
-- [ ] Save watchlist
-- [ ] Score watchlist
+- [x] Create watchlist
+- [x] Add asset
+- [x] Remove asset
+- [x] Save watchlist (JSON persistence in .research_cache/watchlists/)
+- [ ] Score watchlist (Phase 17 — screener scores not yet built)
 
 ### Done when
 

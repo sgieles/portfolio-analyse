@@ -19,6 +19,7 @@ class AnnualFundamentals:
     operating_income: float = float("nan")
     net_income: float = float("nan")
     eps_diluted: float = float("nan")
+    interest_expense: float = float("nan")  # Phase 18: interest coverage
 
     # Margins (0–1)
     gross_margin: float = float("nan")
@@ -30,6 +31,8 @@ class AnnualFundamentals:
     total_equity: float = float("nan")
     total_debt: float = float("nan")
     cash: float = float("nan")
+    current_assets: float = float("nan")        # Phase 18: current ratio
+    current_liabilities: float = float("nan")   # Phase 18: current ratio
 
     # Cash flow
     operating_cash_flow: float = float("nan")
@@ -46,6 +49,29 @@ class AnnualFundamentals:
     # Source metadata
     source: str = "edgar"               # "edgar" | "yfinance"
     last_refreshed: str = ""            # ISO-8601 timestamp
+
+
+@dataclass
+class QuarterlyFundamentals:
+    """Key financial metrics for one fiscal quarter."""
+
+    ticker: str
+    fiscal_year: int
+    fiscal_quarter: int             # 1–4
+    period_end: str                 # ISO date, e.g. "2024-03-31"
+
+    revenue: float = float("nan")
+    gross_profit: float = float("nan")
+    operating_income: float = float("nan")
+    net_income: float = float("nan")
+    eps_diluted: float = float("nan")
+    gross_margin: float = float("nan")
+    operating_margin: float = float("nan")
+    net_margin: float = float("nan")
+    operating_cash_flow: float = float("nan")
+    free_cash_flow: float = float("nan")
+
+    source: str = "yfinance"
 
 
 @dataclass

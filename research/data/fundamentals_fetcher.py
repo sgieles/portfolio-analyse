@@ -10,7 +10,7 @@ import math
 from datetime import datetime, timezone
 from typing import Any
 
-from research.models.fundamentals import AnnualFundamentals, CompanyProfile
+from research.models.fundamentals import AnnualFundamentals, CompanyProfile, QuarterlyFundamentals
 from research.cache import research_cache as _cache
 from research.data import edgar_client
 
@@ -33,6 +33,10 @@ _SHARES_TAGS    = ["CommonStockSharesOutstanding", "EntityCommonStockSharesOutst
 _GROSS_TAGS     = ["GrossProfit"]
 _OP_INC_TAGS    = ["OperatingIncomeLoss", "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest"]
 _BV_TAGS        = ["BookValuePerShareBasic", "CommonStockParOrStatedValuePerShare"]
+_INT_EXP_TAGS   = ["InterestExpense", "InterestAndDebtExpense", "InterestExpenseBorrowings",
+                   "InterestPaidNet"]
+_CUR_ASSETS_TAGS = ["AssetsCurrent"]
+_CUR_LIAB_TAGS   = ["LiabilitiesCurrent"]
 
 
 def _extract_annual(facts: dict, tags: list[str]) -> dict[int, float]:
@@ -98,6 +102,9 @@ def _fetch_from_edgar(ticker: str, n_years: int) -> list[AnnualFundamentals]:
     shares    = _extract_annual(facts, _SHARES_TAGS)
     gross     = _extract_annual(facts, _GROSS_TAGS)
     op_inc    = _extract_annual(facts, _OP_INC_TAGS)
+    int_exp   = _extract_annual(facts, _INT_EXP_TAGS)
+    cur_ast   = _extract_annual(facts, _CUR_ASSETS_TAGS)
+    cur_lia   = _extract_annual(facts, _CUR_LIAB_TAGS)
 
     years = sorted(
         set(revenue) | set(net_inc) | set(assets),
@@ -128,9 +135,12 @@ def _fetch_from_edgar(ticker: str, n_years: int) -> list[AnnualFundamentals]:
             ticker=ticker, cik=cik, fiscal_year=fy,
             revenue=rev, gross_profit=gp, operating_income=oi, net_income=ni,
             eps_diluted=eps.get(fy, float("nan")),
+            interest_expense=int_exp.get(fy, float("nan")),
             gross_margin=gm, operating_margin=om, net_margin=nm,
             total_assets=ast, total_equity=eq,
             total_debt=dt, cash=cash.get(fy, float("nan")),
+            current_assets=cur_ast.get(fy, float("nan")),
+            current_liabilities=cur_lia.get(fy, float("nan")),
             operating_cash_flow=cf, free_cash_flow=fcf,
             capex=cp, shares_outstanding=shares.get(fy, float("nan")),
             return_on_equity=roe, return_on_assets=roa, debt_to_equity=dte,
@@ -166,16 +176,21 @@ def _fetch_from_yfinance(ticker: str, n_years: int) -> list[AnnualFundamentals]:
                         pass
                 return float("nan")
 
-            rev = _get(fin, "Total Revenue")
-            ni  = _get(fin, "Net Income")
-            gp  = _get(fin, "Gross Profit")
-            oi  = _get(fin, "Operating Income")
-            ast = _get(bs,  "Total Assets")
-            eq  = _get(bs,  "Total Stockholder Equity", "Stockholders Equity")
-            dt  = _get(bs,  "Long Term Debt")
-            csh = _get(bs,  "Cash")
-            ocf = _get(cf,  "Total Cash From Operating Activities")
-            cap = _get(cf,  "Capital Expenditures")
+            rev  = _get(fin, "Total Revenue")
+            ni   = _get(fin, "Net Income")
+            gp   = _get(fin, "Gross Profit")
+            oi   = _get(fin, "Operating Income")
+            ast  = _get(bs,  "Total Assets")
+            eq   = _get(bs,  "Total Stockholder Equity", "Stockholders Equity",
+                             "Stockholders' Equity")
+            dt   = _get(bs,  "Long Term Debt", "Long-Term Debt")
+            csh  = _get(bs,  "Cash", "Cash And Cash Equivalents")
+            ocf  = _get(cf,  "Total Cash From Operating Activities",
+                             "Operating Cash Flow")
+            cap  = _get(cf,  "Capital Expenditures")
+            inx  = _get(fin, "Interest Expense", "Interest Expense Non Operating")
+            cast = _get(bs,  "Total Current Assets", "Current Assets")
+            clia = _get(bs,  "Total Current Liabilities", "Current Liabilities")
 
             gm  = (gp / rev) if rev else float("nan")
             om  = (oi / rev) if rev else float("nan")
@@ -188,8 +203,10 @@ def _fetch_from_yfinance(ticker: str, n_years: int) -> list[AnnualFundamentals]:
             result.append(AnnualFundamentals(
                 ticker=ticker, cik="", fiscal_year=fy,
                 revenue=rev, gross_profit=gp, operating_income=oi, net_income=ni,
+                interest_expense=abs(inx) if not math.isnan(inx) else float("nan"),
                 gross_margin=gm, operating_margin=om, net_margin=nm,
                 total_assets=ast, total_equity=eq, total_debt=dt, cash=csh,
+                current_assets=cast, current_liabilities=clia,
                 operating_cash_flow=ocf, free_cash_flow=fcf, capex=cap,
                 return_on_equity=roe, return_on_assets=roa, debt_to_equity=dte,
                 source="yfinance",
@@ -239,6 +256,63 @@ def _fetch_profile_yfinance(ticker: str) -> CompanyProfile:
     except Exception as exc:
         _log.warning("yfinance profile failed for %s: %s", ticker, exc)
         return CompanyProfile(ticker=ticker)
+
+
+def fetch_quarterly(ticker: str, n_quarters: int = 8) -> list[QuarterlyFundamentals]:
+    """Return up to n_quarters of quarterly fundamentals via yfinance.
+
+    Order: newest quarter first.  No disk cache — callers should cache the result.
+    """
+    try:
+        import yfinance as yf
+        tk = yf.Ticker(ticker)
+        fin = tk.quarterly_financials
+        cf  = tk.quarterly_cashflow
+
+        if fin is None or fin.empty:
+            return []
+
+        result: list[QuarterlyFundamentals] = []
+        for col in list(fin.columns)[:n_quarters]:
+            fy = col.year
+            fq = (col.month - 1) // 3 + 1
+
+            def _g(df, *keys) -> float:
+                for k in keys:
+                    try:
+                        v = df.loc[k, col]
+                        if v is not None and not math.isnan(float(v)):
+                            return float(v)
+                    except (KeyError, TypeError, ValueError):
+                        pass
+                return float("nan")
+
+            rev = _g(fin, "Total Revenue")
+            gp  = _g(fin, "Gross Profit")
+            oi  = _g(fin, "Operating Income")
+            ni  = _g(fin, "Net Income")
+            ocf = _g(cf,  "Total Cash From Operating Activities", "Operating Cash Flow")
+            cap = _g(cf,  "Capital Expenditures")
+
+            gm  = (gp / rev) if rev else float("nan")
+            om  = (oi / rev) if rev else float("nan")
+            nm  = (ni / rev) if rev else float("nan")
+            fcf = (ocf + cap) if not (math.isnan(ocf) or math.isnan(cap)) else float("nan")
+
+            result.append(QuarterlyFundamentals(
+                ticker=ticker,
+                fiscal_year=fy,
+                fiscal_quarter=fq,
+                period_end=col.date().isoformat(),
+                revenue=rev, gross_profit=gp, operating_income=oi, net_income=ni,
+                gross_margin=gm, operating_margin=om, net_margin=nm,
+                operating_cash_flow=ocf, free_cash_flow=fcf,
+                source="yfinance",
+            ))
+        return result
+    except Exception as exc:
+        _log.warning("Quarterly fetch failed for %s: %s", ticker, exc)
+        return []
 
 
 def _fund_to_dict(f: AnnualFundamentals) -> dict:

@@ -11,8 +11,8 @@
 
 ## Current status
 
-- **Phase:** 17 — Research Hub & Stock Screener ✅ Complete
-- **Next step:** Phase 18 — Stock Fundamentals Engine
+- **Phase:** 18 — Stock Fundamentals Engine ✅ Complete
+- **Next step:** Phase 19 — Valuation Engine
 - **Last updated:** 2026-06-15
 - **Notes:** Phase 17 ships the Stock Screener with 4 universes (AEX, Nasdaq 100, S&P 500, STOXX 600 top-50), composite scoring (Overall 40% Fundamentals + 35% Valuation + 25% Trend), daily disk cache, filter controls (sector/country/min score), sortable table, and ticker detail panel. Research Hub is now the default app landing. Watchlist scoring deferred to Phase 18 (depends on richer fundamentals). Screener responsive/mobile table done via Streamlit's native dataframe.
 
@@ -40,7 +40,7 @@
 | 15 | Mobile Deployment & Hosting | ✅ Done |
 | 16 | Research Foundation & Data Layer | ✅ Done |
 | 17 | Research Hub & Stock Screener | ✅ Done |
-| 18 | Stock Fundamentals Engine | ⬜ |
+| 18 | Stock Fundamentals Engine | ✅ Done |
 | 19 | Valuation Engine | ⬜ |
 | 20 | Insider Activity & Sector Intelligence | ⬜ |
 | 21 | Research Dashboard & Investment Thesis | ⬜ |
@@ -682,75 +682,79 @@ Users can quickly discover interesting investment opportunities.
 
 #### Growth
 
-- [ ] Revenue Growth
-- [ ] EPS Growth
-- [ ] Free Cash Flow Growth
+- [x] Revenue Growth (3Y CAGR)
+- [x] EPS Growth (3Y CAGR)
+- [x] Free Cash Flow Growth (3Y CAGR)
 
 #### Profitability
 
-- [ ] Gross Margin
-- [ ] Operating Margin
-- [ ] Net Margin
+- [x] Gross Margin
+- [x] Operating Margin
+- [x] Net Margin
+- [x] FCF Margin (bonus component)
 
 #### Capital Efficiency
 
-- [ ] ROIC
-- [ ] ROE
-- [ ] ROA
+- [x] ROIC (NOPAT / Invested Capital, 25% tax assumed)
+- [x] ROE
+- [x] ROA
 
 #### Balance Sheet
 
-- [ ] Debt / Equity
-- [ ] Interest Coverage
-- [ ] Current Ratio
+- [x] Debt / Equity
+- [x] Interest Coverage (EBIT / Interest Expense)
+- [x] Current Ratio (Current Assets / Current Liabilities)
 
 ### Long-Term Trend Analysis
 
 #### Annual Trends
 
-- [ ] Revenue
-- [ ] EPS
-- [ ] Free Cash Flow
-- [ ] Margins
-- [ ] ROIC
-- [ ] Debt
+- [x] Revenue
+- [x] EPS
+- [x] Free Cash Flow
+- [x] Margins (Gross / Op / Net)
+- [x] ROIC / ROE / ROA
+- [x] Debt (D/E ratio)
 
 Support:
 
-- [ ] 5 Year View
-- [ ] 10 Year View
+- [x] 5 Year View
+- [x] 10 Year View (toggleable, up to 10 years of EDGAR/yfinance history)
 
 #### Quarterly Trends
 
-- [ ] Revenue
-- [ ] EPS
-- [ ] Margins
-- [ ] Free Cash Flow
+- [x] Revenue
+- [x] EPS
+- [x] Margins
+- [x] Free Cash Flow
 
 Purpose:
 
-- Detect acceleration
-- Detect deceleration
-- Detect turnarounds
-- Detect margin compression
+- [x] Detect acceleration / deceleration (revenue_trend indicator)
+- [x] Detect margin expansion / compression (margin_trend indicator)
+- Turnarounds (partially — net_income positive/negative)
 
 ### Peer Comparison
 
 Compare against:
 
-- [ ] Sector
-- [ ] Industry
-- [ ] Top Quartile Companies
+- [x] Sector (fundamental_score percentile vs screener cache peers in same sector)
+- [ ] Industry (deferred — requires full industry screener run; sector is good enough)
+- [ ] Top Quartile (implicit in percentile, explicit ranking deferred)
 
 ### Explainability
 
-Display:
+- [x] Strengths (rule-based, ≥ 15 criteria covering growth / margins / ROIC / balance sheet / trends / peer)
+- [x] Weaknesses (rule-based, same set)
+- [x] Score drivers (shown via per-component sub-scores: Growth / Profitability / Cap. Efficiency / Balance Sheet)
 
-Strengths
+### New files
 
-Weaknesses
-
-Drivers behind the score
+- `research/models/fundamentals.py` — added `QuarterlyFundamentals`; extended `AnnualFundamentals` with `interest_expense`, `current_assets`, `current_liabilities`
+- `research/data/fundamentals_fetcher.py` — new EDGAR tags (_INT_EXP_TAGS, _CUR_ASSETS_TAGS, _CUR_LIAB_TAGS); yfinance fallback extended; added `fetch_quarterly()`
+- `research/analytics/fundamental_scorer.py` — `FundamentalAnalysis` dataclass; `score_fundamentals()` function; component scorers and explainability engine
+- `streamlit_app/pages/fundamentals.py` — full breakdown UI: 5-score card strip, trend badges, 16-metric grid, 6-chart annual section (5Y/10Y toggle), quarterly expander (4 charts), strengths/weaknesses panel
+- `streamlit_app/pages/research_hub.py` — Company Look-up now uses `score_fundamentals()` + `fundamentals.render_detail()` + peer comparison via screener cache
 
 ### Done when
 

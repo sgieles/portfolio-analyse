@@ -9,13 +9,16 @@ import streamlit as st
 from research.data.watchlist_store import (
     delete_watchlist, list_watchlists, load_watchlist, save_watchlist,
 )
-from research.data.fundamentals_fetcher import fetch_fundamentals, fetch_profile
+from research.data.fundamentals_fetcher import fetch_fundamentals, fetch_profile, fetch_quarterly
 from research.models.fundamentals import Watchlist
+from research.analytics.fundamental_scorer import score_fundamentals
+from research.cache.screener_cache import load_screener_rows
 from streamlit_app.styles.theme import (
     ACCENT, BG_PRIMARY, BG_SECONDARY, BG_TERTIARY, BORDER,
     DANGER, SUCCESS, TEXT_PRIMARY, TEXT_SECONDARY, WARNING,
 )
 from streamlit_app.pages import screener as _screener_page
+from streamlit_app.pages import fundamentals as _fund_page
 
 _WL_KEY = "active_watchlist"
 
@@ -166,6 +169,11 @@ def _render_watchlists() -> None:
 
 # ── Company look-up tab ────────────────────────────────────────────────────────
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _cached_quarterly(ticker: str) -> list:
+    return fetch_quarterly(ticker, n_quarters=8)
+
+
 def _render_company_lookup() -> None:
     _h3("Company Fundamentals")
 
@@ -178,21 +186,25 @@ def _render_company_lookup() -> None:
         search = st.button("Look up", type="primary",
                            use_container_width=True, key="research_search")
 
-    if not search or not ticker_in.strip():
+    if not search and not st.session_state.get("research_ticker_active"):
         st.caption("Enter a ticker and click Look up.")
         return
 
-    ticker = ticker_in.strip().upper()
+    raw = ticker_in.strip() or st.session_state.get("research_ticker_active", "")
+    if not raw:
+        return
+    ticker = raw.upper()
+    st.session_state["research_ticker_active"] = ticker
 
-    # Profile
     with st.spinner(f"Loading {ticker}…"):
-        profile = fetch_profile(ticker)
-        funds   = fetch_fundamentals(ticker, n_years=5)
+        profile  = fetch_profile(ticker)
+        funds    = fetch_fundamentals(ticker, n_years=10)
+        quarters = _cached_quarterly(ticker)
 
     # Company header
     st.markdown(
         f"""<div style="background:{BG_SECONDARY}; border:1px solid {BORDER};
-                    border-radius:8px; padding:16px 20px; margin-bottom:16px;">
+                    border-radius:8px; padding:16px 20px; margin-bottom:14px;">
             <div style="font-size:20px; font-weight:800; color:{TEXT_PRIMARY};">
                 {profile.name or ticker}
                 <span style="font-size:13px; font-weight:400; color:{TEXT_SECONDARY};
@@ -210,123 +222,49 @@ def _render_company_lookup() -> None:
         st.warning(f"No fundamental data found for {ticker}.")
         return
 
-    # KPI cards — most recent year
-    f0 = funds[0]
-    k1, k2, k3, k4, k5 = st.columns(5)
-    kpi_style = (
-        f"background:{BG_SECONDARY}; border:1px solid {BORDER}; border-radius:8px;"
-        f" padding:12px 14px; text-align:center;"
-    )
+    # Peer scores from screener cache for same sector
+    sector_scores: list[float] = []
+    if profile.sector:
+        for universe in ("S&P 500", "Nasdaq 100", "STOXX 600", "AEX"):
+            cached = load_screener_rows(universe)
+            if cached:
+                for row in cached:
+                    if row.get("sector") == profile.sector:
+                        v = row.get("fundamental_score")
+                        if v is not None and not math.isnan(float(v)):
+                            sector_scores.append(float(v))
 
-    def _kpi(col, label: str, value: str, color: str = TEXT_PRIMARY) -> None:
-        col.markdown(
-            f"""<div style="{kpi_style}">
-                <div style="font-size:9px; color:{TEXT_SECONDARY}; text-transform:uppercase;
-                            letter-spacing:.07em; margin-bottom:4px;">{label}</div>
-                <div style="font-size:18px; font-weight:700; color:{color};">{value}</div>
-            </div>""",
-            unsafe_allow_html=True,
-        )
+    # Run full fundamental analysis
+    analysis = score_fundamentals(ticker, funds, sector_scores or None)
 
-    _kpi(k1, "Revenue", _bn(f0.revenue))
-    _kpi(k2, "Net Income", _bn(f0.net_income),
-         SUCCESS if f0.net_income > 0 else DANGER)
-    _kpi(k3, "Net Margin", _pct(f0.net_margin),
-         SUCCESS if f0.net_margin > 0.10 else WARNING if f0.net_margin > 0 else DANGER)
-    _kpi(k4, "ROE", _pct(f0.return_on_equity),
-         SUCCESS if f0.return_on_equity > 0.15 else WARNING if f0.return_on_equity > 0 else DANGER)
-    _kpi(k5, "Free Cash Flow", _bn(f0.free_cash_flow),
-         SUCCESS if f0.free_cash_flow > 0 else DANGER)
-
-    _divider()
-
-    # Historical table
-    _h3(f"Annual Financials — {f0.source.upper()}")
-    rows = []
-    for f in funds:
-        rows.append({
-            "FY":             f.fiscal_year,
-            "Revenue":        _bn(f.revenue),
-            "Gross Profit":   _bn(f.gross_profit),
-            "Operating Inc.": _bn(f.operating_income),
-            "Net Income":     _bn(f.net_income),
-            "EPS (diluted)":  f"${f.eps_diluted:.2f}" if not math.isnan(f.eps_diluted) else "—",
-            "Gross Margin":   _pct(f.gross_margin),
-            "Op. Margin":     _pct(f.operating_margin),
-            "Net Margin":     _pct(f.net_margin),
-            "ROE":            _pct(f.return_on_equity),
-            "ROA":            _pct(f.return_on_assets),
-            "Debt/Equity":    f"{f.debt_to_equity:.2f}" if not math.isnan(f.debt_to_equity) else "—",
-            "Free CF":        _bn(f.free_cash_flow),
-        })
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    # Annual financials table (collapsible)
+    with st.expander(f"Annual Financials — {funds[0].source.upper()} ({len(funds)} years)", expanded=False):
+        rows = []
+        for f in funds:
+            rows.append({
+                "FY":             f.fiscal_year,
+                "Revenue":        _bn(f.revenue),
+                "Gross Profit":   _bn(f.gross_profit),
+                "Op. Income":     _bn(f.operating_income),
+                "Net Income":     _bn(f.net_income),
+                "EPS":            f"${f.eps_diluted:.2f}" if not math.isnan(f.eps_diluted) else "—",
+                "Gross Margin":   _pct(f.gross_margin),
+                "Op. Margin":     _pct(f.operating_margin),
+                "Net Margin":     _pct(f.net_margin),
+                "ROE":            _pct(f.return_on_equity),
+                "ROA":            _pct(f.return_on_assets),
+                "D/E":            f"{f.debt_to_equity:.2f}" if not math.isnan(f.debt_to_equity) else "—",
+                "Free CF":        _bn(f.free_cash_flow),
+                "Int. Coverage":  f"{f.operating_income/f.interest_expense:.1f}×"
+                                  if not (math.isnan(f.interest_expense) or f.interest_expense == 0
+                                          or math.isnan(f.operating_income)) else "—",
+            })
+        st.dataframe(rows, use_container_width=True, hide_index=True)
 
     _divider()
 
-    # Charts
-    import plotly.graph_objects as go
-    from streamlit_app.styles.theme import PLOTLY_TEMPLATE
-
-    def _apply(fig: go.Figure, h: int = 280) -> go.Figure:
-        t = PLOTLY_TEMPLATE["layout"]
-        fig.update_layout(paper_bgcolor=t["paper_bgcolor"], plot_bgcolor=t["plot_bgcolor"],
-                          font=t["font"], margin=t["margin"], height=h,
-                          legend=dict(bgcolor=t["legend"]["bgcolor"],
-                                      bordercolor=t["legend"]["bordercolor"]))
-        fig.update_xaxes(gridcolor=BORDER, zerolinecolor=BORDER)
-        fig.update_yaxes(gridcolor=BORDER, zerolinecolor=BORDER)
-        return fig
-
-    years_r = [f.fiscal_year for f in reversed(funds)]
-
-    ch1, ch2 = st.columns(2)
-    with ch1:
-        fig_r = go.Figure()
-        fig_r.add_trace(go.Bar(x=years_r,
-                               y=[f.revenue / 1e9 for f in reversed(funds)],
-                               marker_color=ACCENT, name="Revenue"))
-        fig_r.add_trace(go.Bar(x=years_r,
-                               y=[f.net_income / 1e9 for f in reversed(funds)],
-                               marker_color=SUCCESS, name="Net Income"))
-        fig_r.update_layout(title="Revenue & Net Income ($B)", barmode="group")
-        st.plotly_chart(_apply(fig_r), use_container_width=True)
-
-    with ch2:
-        fig_m = go.Figure()
-        fig_m.add_trace(go.Scatter(
-            x=years_r, y=[f.gross_margin * 100 for f in reversed(funds)],
-            name="Gross", line=dict(color=ACCENT, width=2)))
-        fig_m.add_trace(go.Scatter(
-            x=years_r, y=[f.operating_margin * 100 for f in reversed(funds)],
-            name="Operating", line=dict(color="#2563eb", width=2)))
-        fig_m.add_trace(go.Scatter(
-            x=years_r, y=[f.net_margin * 100 for f in reversed(funds)],
-            name="Net", line=dict(color=SUCCESS, width=2)))
-        fig_m.update_layout(title="Margins %", yaxis_title="%")
-        st.plotly_chart(_apply(fig_m), use_container_width=True)
-
-    ch3, ch4 = st.columns(2)
-    with ch3:
-        fig_cf = go.Figure()
-        fig_cf.add_trace(go.Bar(
-            x=years_r, y=[f.operating_cash_flow / 1e9 for f in reversed(funds)],
-            name="Op. CF", marker_color=ACCENT))
-        fig_cf.add_trace(go.Bar(
-            x=years_r, y=[f.free_cash_flow / 1e9 for f in reversed(funds)],
-            name="Free CF", marker_color=SUCCESS))
-        fig_cf.update_layout(title="Cash Flow ($B)", barmode="group")
-        st.plotly_chart(_apply(fig_cf), use_container_width=True)
-
-    with ch4:
-        fig_de = go.Figure(go.Bar(
-            x=years_r, y=[f.debt_to_equity for f in reversed(funds)],
-            marker_color=[DANGER if f.debt_to_equity > 2 else
-                          WARNING if f.debt_to_equity > 1 else SUCCESS
-                          for f in reversed(funds)],
-            name="D/E",
-        ))
-        fig_de.update_layout(title="Debt / Equity Ratio")
-        st.plotly_chart(_apply(fig_de), use_container_width=True)
+    # Full fundamental breakdown (Phase 18)
+    _fund_page.render_detail(ticker, funds, quarters, analysis)
 
     if profile.description:
         with st.expander("Business description"):

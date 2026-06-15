@@ -42,22 +42,136 @@ def _color(v: float, good_above: float, warn_above: float) -> str:
     return SUCCESS if v > good_above else WARNING if v > warn_above else DANGER
 
 
+# ── Metric explanations (shown in info popovers) ───────────────────────────────
+
+_INFO: dict[str, str] = {
+    "Expected Return (ann.)": (
+        "Annualized return based on historical daily price data.\n\n"
+        "**Formula:** mean(daily returns) × 252 trading days\n\n"
+        "Represents the average annual gain based on the full analysis period."
+    ),
+    "CAGR": (
+        "**Compound Annual Growth Rate** — the constant yearly rate that would "
+        "grow your investment from start to end value.\n\n"
+        "**Formula:** (end / start)^(1 / years) − 1\n\n"
+        "Unlike the arithmetic return, CAGR accounts for compounding."
+    ),
+    "CAPM Expected Return": (
+        "Expected return from the **Capital Asset Pricing Model**.\n\n"
+        "**Formula:** rf + β × (E(rm) − rf)\n\n"
+        "where *rf* = risk-free rate, *β* = portfolio beta, *E(rm)* = expected "
+        "market return. Reflects what the market 'should' pay for your portfolio's "
+        "systematic risk."
+    ),
+    "Volatility (ann.)": (
+        "Annualized standard deviation of daily returns — the most common measure "
+        "of total portfolio risk.\n\n"
+        "**Formula:** std(daily returns) × √252\n\n"
+        "Lower volatility = more stable portfolio. A value below 15 % is considered "
+        "low; above 25 % is high."
+    ),
+    "Sharpe Ratio": (
+        "Return earned per unit of **total risk** (volatility).\n\n"
+        "**Formula:** (annualized return − risk-free rate) / annualized volatility\n\n"
+        "**Interpretation:** >1.0 = good · 0.5–1.0 = acceptable · <0.5 = poor\n\n"
+        "Higher is better. A Sharpe of 1 means you earn 1 % of return for every "
+        "1 % of volatility."
+    ),
+    "Sortino Ratio": (
+        "Like the Sharpe Ratio, but only penalizes **downside** volatility "
+        "(negative returns).\n\n"
+        "**Formula:** (annualized return − risk-free rate) / downside deviation\n\n"
+        "Better reflects investor experience since upside volatility is not a risk. "
+        "Same benchmarks as Sharpe: >1.0 = good."
+    ),
+    "Beta vs Benchmark": (
+        "Measures how sensitive the portfolio is to movements in the benchmark "
+        "(e.g. SPY).\n\n"
+        "**Formula:** cov(portfolio, benchmark) / var(benchmark)\n\n"
+        "**Interpretation:** β = 1 → moves with the market · β > 1 → amplifies "
+        "moves · β < 1 → more defensive"
+    ),
+    "Max Drawdown": (
+        "The **largest peak-to-trough decline** in portfolio value over the "
+        "analysis period.\n\n"
+        "**Formula:** max((peak − trough) / peak) over all sub-periods\n\n"
+        "A drawdown of −30 % means the portfolio once fell 30 % from its highest "
+        "point before recovering. Larger (more negative) = higher risk."
+    ),
+    "VaR 95 %": (
+        "**Value at Risk (historical, 95 % confidence)**\n\n"
+        "The maximum daily loss expected to be exceeded on only 5 % of trading "
+        "days, based on the historical return distribution.\n\n"
+        "Example: VaR 95 % = −2 % means that on 95 % of days your loss will be "
+        "less than 2 %."
+    ),
+    "VaR 99 %": (
+        "**Value at Risk (historical, 99 % confidence)**\n\n"
+        "Same as VaR 95 %, but more conservative: only 1 % of days are expected "
+        "to produce a worse loss than this threshold.\n\n"
+        "Always worse (larger negative) than VaR 95 %."
+    ),
+    "CVaR (ES)": (
+        "**Conditional Value at Risk** (also called Expected Shortfall)\n\n"
+        "The **average loss** on the worst 5 % of trading days — i.e. the mean "
+        "of all losses that exceed the VaR 95 % threshold.\n\n"
+        "More informative than VaR because it captures the severity of tail losses, "
+        "not just the threshold."
+    ),
+    "Number of Assets": (
+        "Total number of individual assets (tickers) currently in the portfolio.\n\n"
+        "More assets generally improves diversification, but only if the assets "
+        "are not highly correlated with each other."
+    ),
+    "Avg Correlation": (
+        "The average **Pearson correlation** between all pairs of assets in the "
+        "portfolio, calculated on daily returns.\n\n"
+        "**Interpretation:** <0.5 = well diversified · 0.5–0.75 = moderate "
+        "concentration · >0.75 = highly correlated\n\n"
+        "Lower average correlation = more effective diversification."
+    ),
+    "Diversification Score": (
+        "A composite score measuring how effectively risk is spread across assets.\n\n"
+        "Combines average pairwise correlation and weight concentration (HHI).\n\n"
+        "**Interpretation:** >0.3 = good · 0.1–0.3 = moderate · <0.1 = poor\n\n"
+        "Higher is better."
+    ),
+    "Health Score": (
+        "A composite **0–100 score** combining five factors:\n\n"
+        "- Sharpe Ratio (return quality)\n"
+        "- Max Drawdown (downside protection)\n"
+        "- Volatility (stability)\n"
+        "- Diversification Score (risk spread)\n"
+        "- Weight concentration (HHI)\n\n"
+        "**Interpretation:** ≥60 = healthy · 35–59 = moderate · <35 = needs attention"
+    ),
+}
+
+
 # ── UI components ──────────────────────────────────────────────────────────────
 
 def _metric(label: str, value: str, color: str = TEXT_PRIMARY) -> None:
-    st.markdown(
-        f"""
-        <div style="background:{BG_SECONDARY}; border:1px solid {BORDER};
-                    border-radius:8px; padding:12px 16px; margin-bottom:7px;
-                    box-shadow:0 1px 3px rgba(35,29,21,0.06);">
-            <div style="font-size:10px; color:{TEXT_SECONDARY}; text-transform:uppercase;
-                        letter-spacing:0.06em; margin-bottom:5px;">{label}</div>
-            <div style="font-size:20px; font-weight:700; color:{color};
-                        text-align:right; letter-spacing:-0.02em;">{value}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    card_html = (
+        f'<div style="background:{BG_SECONDARY}; border:1px solid {BORDER};'
+        f'border-radius:8px; padding:12px 16px; margin-bottom:7px;'
+        f'box-shadow:0 1px 3px rgba(35,29,21,0.06);">'
+        f'<div style="font-size:10px; color:{TEXT_SECONDARY}; text-transform:uppercase;'
+        f'letter-spacing:0.06em; margin-bottom:5px;">{label}</div>'
+        f'<div style="font-size:20px; font-weight:700; color:{color};'
+        f'text-align:right; letter-spacing:-0.02em;">{value}</div>'
+        f'</div>'
     )
+    info_text = _INFO.get(label)
+    if info_text:
+        card_col, icon_col = st.columns([11, 1])
+        card_col.markdown(card_html, unsafe_allow_html=True)
+        with icon_col:
+            st.markdown("<div style='padding-top:10px'></div>", unsafe_allow_html=True)
+            with st.popover("ⓘ", use_container_width=True):
+                st.markdown(f"**{label}**")
+                st.markdown(info_text)
+    else:
+        st.markdown(card_html, unsafe_allow_html=True)
 
 
 def _section_header(title: str, color: str = ACCENT) -> None:

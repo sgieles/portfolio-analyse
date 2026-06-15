@@ -65,14 +65,6 @@ def _portfolio_hub() -> None:
     portfolio_builder.render()
     st.sidebar.divider()
     export_panel.render()
-    st.sidebar.divider()
-
-    page = st.sidebar.radio(
-        "Navigation",
-        ["Dashboard", "Asset Analysis", "Monte Carlo"],
-        label_visibility="visible",
-        key="portfolio_page",
-    )
 
     pf = session.get_portfolio()
     pf_name = pf.name if pf.name else "My Portfolio"
@@ -89,11 +81,14 @@ def _portfolio_hub() -> None:
         unsafe_allow_html=True,
     )
 
-    if page == "Dashboard":
+    tab_dash, tab_asset, tab_mc = st.tabs(
+        ["📊 Dashboard", "🔍 Asset Analysis", "🎲 Monte Carlo"]
+    )
+    with tab_dash:
         dashboard.render()
-    elif page == "Asset Analysis":
+    with tab_asset:
         asset_analysis.render()
-    elif page == "Monte Carlo":
+    with tab_mc:
         monte_carlo.render()
 
 

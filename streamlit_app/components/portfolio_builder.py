@@ -70,8 +70,8 @@ def render() -> bool:
                 _sync_slider_states(pf)
                 session.set_portfolio(pf)
                 session.clear_result()
-                # Clear the selectbox selection
-                st.session_state["ticker_selectbox"] = None
+                # Reset selectbox to placeholder (del is allowed after render; = is not)
+                st.session_state.pop("ticker_selectbox", None)
                 changed = True
             else:
                 st.sidebar.warning(f"{raw} already in portfolio.")

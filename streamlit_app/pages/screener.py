@@ -8,7 +8,13 @@ visits within the same day are instant.
 from __future__ import annotations
 
 import math
+import sys
 from dataclasses import asdict
+from pathlib import Path
+
+_ROOT = str(Path(__file__).resolve().parent.parent.parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 import pandas as pd
 import streamlit as st

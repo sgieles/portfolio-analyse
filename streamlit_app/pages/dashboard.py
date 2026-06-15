@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 import math
+import sys
 from datetime import date, timedelta
+from pathlib import Path
+
+_ROOT = str(Path(__file__).resolve().parent.parent.parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 import numpy as np
 import plotly.graph_objects as go

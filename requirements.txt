@@ -11,6 +11,12 @@ openpyxl>=3.1
 reportlab>=4.2
 requests>=2.32
 
+# Image processing (Streamlit logo, favicon)
+Pillow>=10.0
+
+# HTML parsing for pd.read_html() in universe.py
+lxml>=5.0
+
 # Web application
 streamlit>=1.35
 plotly>=5.20

@@ -10,6 +10,12 @@ Entry point:  render_detail(ticker, funds, quarterly, analysis)
 from __future__ import annotations
 
 import math
+import sys
+from pathlib import Path
+
+_ROOT = str(Path(__file__).resolve().parent.parent.parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 from typing import Sequence
 
 import plotly.graph_objects as go

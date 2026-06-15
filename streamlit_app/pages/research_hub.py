@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 import math
+import sys
+from pathlib import Path
+
+# Ensure repo root is on sys.path when Streamlit runs this page standalone on Cloud
+_ROOT = str(Path(__file__).resolve().parent.parent.parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 import streamlit as st
 

@@ -11,8 +11,8 @@
 
 ## Current status
 
-- **Phase:** 18 — Stock Fundamentals Engine ✅ Complete
-- **Next step:** Phase 19 — Valuation Engine
+- **Phase:** 19 — Valuation Engine ✅ Complete
+- **Next step:** Phase 20 — Insider Activity & Sector Intelligence
 - **Last updated:** 2026-06-15
 - **Notes:** Phase 17 ships the Stock Screener with 4 universes (AEX, Nasdaq 100, S&P 500, STOXX 600 top-50), composite scoring (Overall 40% Fundamentals + 35% Valuation + 25% Trend), daily disk cache, filter controls (sector/country/min score), sortable table, and ticker detail panel. Research Hub is now the default app landing. Watchlist scoring deferred to Phase 18 (depends on richer fundamentals). Screener responsive/mobile table done via Streamlit's native dataframe.
 
@@ -41,7 +41,7 @@
 | 16 | Research Foundation & Data Layer | ✅ Done |
 | 17 | Research Hub & Stock Screener | ✅ Done |
 | 18 | Stock Fundamentals Engine | ✅ Done |
-| 19 | Valuation Engine | ⬜ |
+| 19 | Valuation Engine | ✅ Done |
 | 20 | Insider Activity & Sector Intelligence | ⬜ |
 | 21 | Research Dashboard & Investment Thesis | ⬜ |
 | 22 | ETF Research Module | ⬜ |
@@ -766,38 +766,53 @@ Users understand both the score and the underlying financial trends.
 
 ### Relative Valuation
 
-- [ ] P/E
-- [ ] Forward P/E
-- [ ] EV/EBITDA
-- [ ] EV/Sales
-- [ ] Price/Sales
-- [ ] Price/Book
-- [ ] Free Cash Flow Yield
+- [x] P/E (trailing)
+- [x] Forward P/E
+- [x] EV/EBITDA
+- [x] EV/Sales
+- [x] Price/Sales
+- [x] Price/Book
+- [x] Free Cash Flow Yield (FCF / Market Cap)
 
 Compare against:
 
-- [ ] Historical Average
-- [ ] Sector
-- [ ] Industry
-- [ ] Broad Market
+- [x] Historical Average (5-yr avg reconstructed from price history + AnnualFundamentals)
+- [x] Sector (median P/E, Fwd P/E, P/B from screener cache peers)
+- [ ] Industry (not implemented — sector is sufficient at this stage)
+- [x] Broad Market (SPY trailing P/E via yfinance)
 
 ### Intrinsic Valuation
 
 #### DCF
 
-- [ ] Growth assumptions
-- [ ] Discount rate
-- [ ] Terminal value
+- [x] Growth assumptions (slider, default from Phase 18 revenue CAGR)
+- [x] Discount rate (WACC slider, 5–20 %)
+- [x] Terminal value (Gordon Growth Model, perpetuity growth slider)
 
 Output:
 
-- [ ] Fair Value
-- [ ] Current Price
-- [ ] Margin of Safety
+- [x] Fair Value per share
+- [x] Current Price
+- [x] Margin of Safety
+- [x] Sensitivity table (3×3: WACC × growth rate)
 
 ### Explainability
 
-Display reasons for score.
+- [x] Valuation score (0–100, higher = cheaper)
+- [x] vs History / Sector / Market badges (cheap / fair / expensive)
+- [x] Cheap signals (green) + Expensive signals (red)
+
+### New files
+
+- `research/analytics/valuation_engine.py` — pure: ValuationMultiples, HistoricalMultiples,
+  DcfResult, ValuationAnalysis dataclasses; `dcf_fair_value()`, `fill_dcf_price()`,
+  `compute_historical_multiples()`, `compute_sector_median()`, `score_valuation()`
+- `research/data/valuation_fetcher.py` — yfinance fetchers: current multiples, year-end
+  prices (for historical P/E reconstruction), market P/E (SPY)
+- `streamlit_app/pages/valuation.py` — full valuation UI: DCF with sliders + sensitivity
+  table, score strip, multiples comparison table with color coding, signals panel
+- `streamlit_app/pages/research_hub.py` — Company Look-up now shows
+  📊 Fundamentals | 💰 Valuation tabs
 
 ### Done when
 

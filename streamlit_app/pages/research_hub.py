@@ -19,6 +19,7 @@ from streamlit_app.styles.theme import (
 )
 from streamlit_app.pages import screener as _screener_page
 from streamlit_app.pages import fundamentals as _fund_page
+from streamlit_app.pages import valuation as _val_page
 
 _WL_KEY = "active_watchlist"
 
@@ -261,11 +262,15 @@ def _render_company_lookup() -> None:
             })
         st.dataframe(rows, use_container_width=True, hide_index=True)
 
-    _divider()
-
-    # Full fundamental breakdown (Phase 18)
-    _fund_page.render_detail(ticker, funds, quarters, analysis)
-
     if profile.description:
         with st.expander("Business description"):
             st.write(profile.description)
+
+    _divider()
+
+    # Fundamentals / Valuation tabs (Phase 18 + 19)
+    tab_fund, tab_val = st.tabs(["📊 Fundamentals", "💰 Valuation"])
+    with tab_fund:
+        _fund_page.render_detail(ticker, funds, quarters, analysis)
+    with tab_val:
+        _val_page.render_detail(ticker, funds, profile)

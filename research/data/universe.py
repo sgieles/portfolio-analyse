@@ -13,11 +13,11 @@ UNIVERSE_NAMES: list[str] = ["AEX", "Nasdaq 100", "S&P 500", "STOXX 600"]
 
 # ── AEX (Amsterdam Exchange) — 25 components ──────────────────────────────────
 AEX_TICKERS: list[str] = [
-    "ASML.AS", "SHELL.AS", "HEIN.AS", "ING.AS", "PHIA.AS",
+    "ASML.AS", "SHELL.AS", "HEIA.AS", "INGA.AS", "PHIA.AS",
     "UNA.AS", "NN.AS", "ABN.AS", "RAND.AS", "AKZA.AS",
-    "DSM.AS", "AGN.AS", "WKL.AS", "KPN.AS", "BESI.AS",
+    "DSFIR.AS", "AGN.AS", "WKL.AS", "KPN.AS", "BESI.AS",
     "IMCD.AS", "ADYEN.AS", "AD.AS", "MT.AS", "LIGHT.AS",
-    "PRX.AS", "OCI.AS", "TKWY.AS", "UMG.AS", "VPK.AS",
+    "PRX.AS", "OCI.AS", "UMG.AS", "VPK.AS", "ASM.AS",
 ]
 
 # ── Nasdaq 100 — static list (fetched live if Wikipedia is available) ─────────
@@ -41,7 +41,7 @@ _STOXX600_TOP50: list[str] = [
     "NESN.SW", "NOVN.SW", "ROG.SW",
     "AZN.L", "HSBA.L", "ULVR.L", "BP.L", "RIO.L", "SHEL.L", "GSK.L",
     "LSEG.L", "NXT.L", "BARC.L", "LLOY.L",
-    "ASML.AS", "HEIN.AS", "ING.AS", "UNA.AS", "PHIA.AS", "ABN.AS", "AD.AS",
+    "ASML.AS", "HEIA.AS", "INGA.AS", "UNA.AS", "PHIA.AS", "ABN.AS", "AD.AS",
     "MC.PA", "OR.PA", "SAN.PA", "AIR.PA", "BNP.PA", "TTE.PA", "SU.PA",
     "KER.PA", "SGO.PA",
     "SAP.DE", "SIE.DE", "ALV.DE", "BMW.DE", "DTE.DE", "BAS.DE",

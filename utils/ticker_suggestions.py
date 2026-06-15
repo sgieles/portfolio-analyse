@@ -33,6 +33,7 @@ _TICKERS: dict[str, str] = {
     "UMG.AS":   "Universal Music Group",
     "VPK.AS":   "Vopak",
     "DSFIR.AS": "DSM-Firmenich",
+    "ASM.AS":   "ASM International",
 
     # ── Nasdaq 100 ────────────────────────────────────────────────────────────
     "AAPL":  "Apple",

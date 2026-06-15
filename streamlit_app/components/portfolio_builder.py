@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+_ROOT = str(Path(__file__).resolve().parent.parent.parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 import streamlit as st
 
 from models.asset import Asset
@@ -11,9 +18,9 @@ from streamlit_app.state import session
 from streamlit_app.styles.theme import ACCENT, BG_TERTIARY, BG_SECONDARY, BORDER, TEXT_PRIMARY, TEXT_SECONDARY
 from utils.constants import ANALYSIS_PERIODS, BENCHMARKS, DEFAULT_BENCHMARK, DEFAULT_PERIOD
 from utils.validators import validate_ticker
+from utils.ticker_suggestions import ticker_options, extract_ticker
 
 import tempfile
-from pathlib import Path
 
 
 def render() -> bool:
@@ -41,27 +48,30 @@ def render() -> bool:
 
     # ── Add ticker ─────────────────────────────────────────────────────────────
     st.sidebar.markdown("**Portfolio Builder**")
-    col_inp, col_btn = st.sidebar.columns([3, 1])
-    with col_inp:
-        new_ticker = st.text_input(
-            "Ticker", key="new_ticker_input",
-            placeholder="AAPL, MSFT…",
-            label_visibility="collapsed",
-        )
-    with col_btn:
-        st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
-        add_clicked = st.button("Add", use_container_width=True)
 
-    if add_clicked and new_ticker.strip():
-        raw = new_ticker.strip().upper()
+    selected_suggestion = st.sidebar.selectbox(
+        "Ticker",
+        options=ticker_options(),
+        index=None,
+        placeholder="Search ticker or company name…",
+        key="ticker_selectbox",
+        label_visibility="collapsed",
+    )
+
+    add_clicked = st.sidebar.button("Add", use_container_width=True, key="btn_add_ticker")
+
+    if add_clicked and selected_suggestion:
+        raw = extract_ticker(selected_suggestion)
         try:
             validate_ticker(raw)
             if raw not in pf.tickers:
-                n = len(pf.assets) + 1
-                pf.assets.append(Asset(ticker=raw, weight=round(1.0 / n, 6)))
+                pf.assets.append(Asset(ticker=raw, weight=0.0))
                 _rebalance_equal(pf)
+                _sync_slider_states(pf)
                 session.set_portfolio(pf)
                 session.clear_result()
+                # Clear the selectbox selection
+                st.session_state["ticker_selectbox"] = None
                 changed = True
             else:
                 st.sidebar.warning(f"{raw} already in portfolio.")
@@ -99,6 +109,7 @@ def render() -> bool:
                 pf.assets = [a for a in pf.assets if a.ticker != to_remove]
                 if pf.assets:
                     _rebalance_equal(pf)
+                    _sync_slider_states(pf)
                 session.set_portfolio(pf)
                 session.clear_result()
                 changed = True
@@ -108,6 +119,7 @@ def render() -> bool:
         with c1:
             if st.button("Equal Weight", use_container_width=True, key="btn_eq"):
                 _rebalance_equal(pf)
+                _sync_slider_states(pf)
                 session.set_portfolio(pf)
                 session.clear_result()
                 changed = True
@@ -115,6 +127,7 @@ def render() -> bool:
             if st.button("Normalize", use_container_width=True, key="btn_norm"):
                 try:
                     pf.normalize_weights()
+                    _sync_slider_states(pf)
                     session.set_portfolio(pf)
                     session.clear_result()
                     changed = True
@@ -171,3 +184,15 @@ def _rebalance_equal(pf: Portfolio) -> None:
         w = round(1.0 / n, 6)
         for a in pf.assets:
             a.weight = w
+
+
+def _sync_slider_states(pf: Portfolio) -> None:
+    """Write portfolio weights into the slider session-state keys.
+
+    Streamlit sliders store their value in st.session_state[key]. If we
+    update portfolio weights without also updating the session-state key,
+    the slider re-renders with the old value on the next run and overwrites
+    the new weight.
+    """
+    for a in pf.assets:
+        st.session_state[f"slider_{a.ticker}"] = round(a.weight, 4)

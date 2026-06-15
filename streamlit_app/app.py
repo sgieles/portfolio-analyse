@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from PIL import Image
 import streamlit as st
 
 from streamlit_app.state import session
@@ -18,11 +19,13 @@ from streamlit_app.styles.theme import (
 from streamlit_app.components import portfolio_builder, export_panel
 from streamlit_app.pages import dashboard, asset_analysis, monte_carlo, research_hub
 
+_ASSETS = Path(__file__).parent / "assets"
+_LOGO = Image.open(_ASSETS / "logo.png")
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Portfolio Analyser",
-    page_icon="📈",
+    page_icon=_LOGO,
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -30,7 +33,18 @@ st.set_page_config(
 st.markdown(DARK_CSS, unsafe_allow_html=True)
 session.init()
 
-# ── Hub switcher (top of sidebar) ─────────────────────────────────────────────
+# ── Sidebar logo ───────────────────────────────────────────────────────────────
+with st.sidebar:
+    logo_col, title_col = st.columns([1, 3], vertical_alignment="center")
+    logo_col.image(_LOGO, width=48)
+    title_col.markdown(
+        f"<span style='font-size:15px; font-weight:800; color:{TEXT_PRIMARY}; "
+        f"letter-spacing:-0.02em; line-height:1.1;'>Portfolio<br>Analyser</span>",
+        unsafe_allow_html=True,
+    )
+    st.divider()
+
+# ── Hub switcher ───────────────────────────────────────────────────────────────
 hub = st.sidebar.radio(
     "Hub",
     ["🔬 Research Hub", "📊 Portfolio Hub"],

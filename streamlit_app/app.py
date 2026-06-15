@@ -31,6 +31,11 @@ st.set_page_config(
 )
 
 st.markdown(DARK_CSS, unsafe_allow_html=True)
+# Hide Streamlit's auto-generated multipage nav (we use our own hub switcher)
+st.markdown(
+    "<style>[data-testid='stSidebarNav']{display:none}</style>",
+    unsafe_allow_html=True,
+)
 session.init()
 
 # ── Sidebar logo ───────────────────────────────────────────────────────────────

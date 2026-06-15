@@ -21,6 +21,12 @@ htmlcov/
 # Local price cache (re-downloaded from Yahoo Finance)
 cache/
 .cache/
+.research_cache/
+
+# research/cache/ is Python source — explicitly un-ignore so the cache/ rule above
+# doesn't swallow it.  The *.json data files inside are ignored by the *.json rule.
+!research/cache/
+!research/cache/*.py
 
 # Exported reports (user-generated, not source code)
 *.pdf

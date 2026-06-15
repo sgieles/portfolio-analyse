@@ -11,10 +11,10 @@
 
 ## Current status
 
-- **Phase:** 16 — Research Foundation & Data Layer ✅ Complete
-- **Next step:** Phase 17 — Research Hub & Stock Screener
+- **Phase:** 17 — Research Hub & Stock Screener ✅ Complete
+- **Next step:** Phase 18 — Stock Fundamentals Engine
 - **Last updated:** 2026-06-15
-- **Notes:** All Phase 12 sections shipped: KPI strip (7 metrics), growth chart with 1M/3M/6M/YTD/1Y/All period filter, weight donut + sector donut (yfinance info, cached 1h), full metrics detail (all 13 metrics across Return/Risk/Diversification), correlation heatmap (Plotly, hover values), optimization panel (weights table + metrics table + apply-weights buttons for 3 methods), scenario analysis, drawdown + rolling vol, risk/return contribution charts.
+- **Notes:** Phase 17 ships the Stock Screener with 4 universes (AEX, Nasdaq 100, S&P 500, STOXX 600 top-50), composite scoring (Overall 40% Fundamentals + 35% Valuation + 25% Trend), daily disk cache, filter controls (sector/country/min score), sortable table, and ticker detail panel. Research Hub is now the default app landing. Watchlist scoring deferred to Phase 18 (depends on richer fundamentals). Screener responsive/mobile table done via Streamlit's native dataframe.
 
 ---
 
@@ -39,7 +39,7 @@
 | 14 | Streamlit Production Readiness | ✅ Done |
 | 15 | Mobile Deployment & Hosting | ✅ Done |
 | 16 | Research Foundation & Data Layer | ✅ Done |
-| 17 | Research Hub & Stock Screener | ⬜ |
+| 17 | Research Hub & Stock Screener | ✅ Done |
 | 18 | Stock Fundamentals Engine | ⬜ |
 | 19 | Valuation Engine | ⬜ |
 | 20 | Insider Activity & Sector Intelligence | ⬜ |
@@ -634,10 +634,10 @@ Research data is available independently from portfolio analytics.
 
 #### Stocks
 
-- [ ] S&P 500
-- [ ] Nasdaq 100
-- [ ] STOXX Europe 600
-- [ ] AEX
+- [x] S&P 500 (Wikipedia fetch + static fallback)
+- [x] Nasdaq 100 (Wikipedia fetch + static fallback)
+- [x] STOXX Europe 600 (representative top-50 subset)
+- [x] AEX (25 components)
 
 ### Research Screener
 
@@ -646,25 +646,29 @@ Display:
 | Asset | Sector | Overall | Fundamentals | Valuation | Sector Score | Insider | Trend |
 |-------|--------|--------:|-------------:|----------:|-------------:|--------:|------:|
 
+- [x] Screener table with Overall / Fundamentals / Valuation / Trend columns
+- [x] Sector Score: deferred to Phase 18 (sector peer comparison not yet built)
+- [x] Insider: placeholder nan — Phase 20
+
 ### Filters
 
-- [ ] Overall Score
-- [ ] Sector
-- [ ] Country
-- [ ] Market Cap
-- [ ] Dividend Yield
-- [ ] Growth
-- [ ] Valuation
-- [ ] Insider Activity
+- [x] Overall Score (slider)
+- [x] Sector (multiselect)
+- [x] Country (multiselect)
+- [ ] Market Cap (slider — deferred; nan values make range slider tricky)
+- [ ] Dividend Yield (filter deferred to Phase 18)
+- [ ] Growth (filter deferred to Phase 18)
+- [ ] Valuation (subscore filter deferred to Phase 18)
+- [ ] Insider Activity (Phase 20)
 
 ### Navigation
 
-- [ ] Switch the default landing / entry point to the Research Hub (per decision 2026-06-14)
-- [ ] Click asset → Asset Detail Page
+- [x] Switch the default landing / entry point to the Research Hub
+- [x] Click asset → Ticker Detail panel (inline expander with 4 score cards + 12 metrics)
 
 ### Responsive
 
-- [ ] Responsive / mobile-friendly screener table (moved here from Phase 15)
+- [x] Responsive / mobile-friendly screener table (Streamlit native dataframe + overflow scroll)
 
 ### Done when
 

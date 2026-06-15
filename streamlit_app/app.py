@@ -33,7 +33,7 @@ session.init()
 # ── Hub switcher (top of sidebar) ─────────────────────────────────────────────
 hub = st.sidebar.radio(
     "Hub",
-    ["📊 Portfolio Hub", "🔬 Research Hub"],
+    ["🔬 Research Hub", "📊 Portfolio Hub"],
     key="active_hub",
     label_visibility="collapsed",
 )
@@ -104,7 +104,7 @@ def _research_hub() -> None:
 
 
 # ── Route ──────────────────────────────────────────────────────────────────────
-if hub == "📊 Portfolio Hub":
-    _portfolio_hub()
-else:
+if hub == "🔬 Research Hub":
     _research_hub()
+else:
+    _portfolio_hub()

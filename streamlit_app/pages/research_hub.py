@@ -1,4 +1,4 @@
-"""Research Hub — watchlist management and fundamentals viewer (Phase 16)."""
+"""Research Hub — screener, watchlists, and fundamentals viewer."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from streamlit_app.styles.theme import (
     ACCENT, BG_PRIMARY, BG_SECONDARY, BG_TERTIARY, BORDER,
     DANGER, SUCCESS, TEXT_PRIMARY, TEXT_SECONDARY, WARNING,
 )
+from streamlit_app.pages import screener as _screener_page
 
 _WL_KEY = "active_watchlist"
 
@@ -49,13 +50,12 @@ def _bn(v: float) -> str:
 
 
 def render() -> None:
-    st.markdown(
-        f"<p style='color:{TEXT_SECONDARY}; font-size:13px; margin-bottom:16px;'>"
-        "Research Hub — watchlists, fundamentals, company profiles</p>",
-        unsafe_allow_html=True,
+    tab_scr, tab_wl, tab_company = st.tabs(
+        ["🔍 Screener", "📋 Watchlists", "🏢 Company Look-up"]
     )
 
-    tab_wl, tab_company = st.tabs(["Watchlists", "Company Look-up"])
+    with tab_scr:
+        _screener_page.render()
 
     with tab_wl:
         _render_watchlists()

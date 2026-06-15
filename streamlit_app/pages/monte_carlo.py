@@ -55,13 +55,20 @@ def _kpi(col, label: str, value: str, sub: str = "", color: str = TEXT_PRIMARY) 
         f"background:{BG_SECONDARY}; border:1px solid {BORDER}; border-radius:8px; "
         f"padding:14px 16px; text-align:center; box-shadow:0 1px 3px rgba(35,29,21,0.06);"
     )
+    sub_html = (
+        f'<div style="font-size:10px; color:{TEXT_SECONDARY}; margin-top:3px;">{sub}</div>'
+        if sub else ""
+    )
+    # Build as a single unbroken string — a blank line in the HTML would cause
+    # Streamlit's Markdown parser to end the HTML block early, leaving the
+    # closing </div> to be rendered as literal text.
     col.markdown(
-        f"""<div style="{kpi_style}">
-            <div style="font-size:9px; color:{TEXT_SECONDARY}; text-transform:uppercase;
-                        letter-spacing:0.07em; margin-bottom:4px;">{label}</div>
-            <div style="font-size:22px; font-weight:700; color:{color};">{value}</div>
-            {"" if not sub else f'<div style="font-size:10px; color:{TEXT_SECONDARY}; margin-top:3px;">{sub}</div>'}
-        </div>""",
+        f'<div style="{kpi_style}">'
+        f'<div style="font-size:9px; color:{TEXT_SECONDARY}; text-transform:uppercase; '
+        f'letter-spacing:0.07em; margin-bottom:4px;">{label}</div>'
+        f'<div style="font-size:22px; font-weight:700; color:{color};">{value}</div>'
+        f'{sub_html}'
+        f'</div>',
         unsafe_allow_html=True,
     )
 

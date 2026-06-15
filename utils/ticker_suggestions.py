@@ -11,8 +11,8 @@ _TICKERS: dict[str, str] = {
     # ── AEX (Amsterdam) ───────────────────────────────────────────────────────
     "ASML.AS":  "ASML Holding",
     "SHELL.AS": "Shell",
-    "HEIN.AS":  "Heineken",
-    "ING.AS":   "ING Groep",
+    "HEIA.AS":  "Heineken",
+    "INGA.AS":  "ING Groep",
     "PHIA.AS":  "Philips",
     "UNA.AS":   "Unilever",
     "NN.AS":    "NN Group",
@@ -32,8 +32,7 @@ _TICKERS: dict[str, str] = {
     "OCI.AS":   "OCI",
     "UMG.AS":   "Universal Music Group",
     "VPK.AS":   "Vopak",
-    "TKWY.AS":  "Just Eat Takeaway",
-    "DSM.AS":   "DSM-Firmenich",
+    "DSFIR.AS": "DSM-Firmenich",
 
     # ── Nasdaq 100 ────────────────────────────────────────────────────────────
     "AAPL":  "Apple",

@@ -2,8 +2,8 @@
 
 ## Current status
 
-- **Phase:** 22 — ETF Research Module ✅ Complete
-- **Next step:** Phase 23 — Commodities Research Module
+- **Phase:** 23 — Dash UI Migration ✅ Complete
+- **Next step:** Phase 24 — Commodities Research Module
 - **Last updated:** 2026-06-16
 
 ---
@@ -26,7 +26,8 @@
 | 20 | Insider Activity (time-decay score) + Sector Intelligence (SWOT/PESTLE) | ✅ Done |
 | 21 | Research Report & Investment Thesis (rule-based, technical scorer) | ✅ Done |
 | 22 | ETF Research Module (profile, scorer, analysis page, auto-routing) | ✅ Done |
-| 23 | Commodities Research Module | ⬜ Next |
+| 23 | Dash UI Migration (full app rebuild: dark theme, sidebar, Portfolio Hub, Research Hub) | ✅ Done |
+| 24 | Commodities Research Module | ⬜ Next |
 
 ---
 
@@ -36,18 +37,31 @@
 
 ---
 
-## Phase 23 — Commodities Research Module
+## Phase 23 — Dash UI Migration ✅
+
+Complete rebuild of the UI layer from Streamlit to Dash:
+- `dash_app/app.py` — entry point, routing, stores
+- `dash_app/assets/style.css` — full dark Bloomberg theme
+- `dash_app/components/theme.py` — colour constants + Plotly layout defaults
+- `dash_app/components/analysis_runner.py` — pure analysis runner (no framework coupling)
+- `dash_app/layouts/portfolio_hub.py` — Portfolio Hub: sidebar, dashboard, asset analysis, Monte Carlo
+- `dash_app/layouts/research_hub.py` — Research Hub: screener, watchlists, company lookup, sector intel
+
+**Run:** `python dash_app/app.py` → `http://localhost:8050`
+
+---
+
+## Phase 24 — Commodities Research Module
 
 *Goal: extend the research workflow to commodities after stock and ETF research are complete.*
 
 - [ ] Commodity universe (gold, oil, gas, copper, silver, wheat, etc. — yfinance tickers like GC=F, CL=F)
 - [ ] Commodity profile fetcher (`research/data/commodity_fetcher.py`)
 - [ ] Commodity scorer (`research/analytics/commodity_scorer.py`) — momentum, inflation sensitivity, supply/demand signals
-- [ ] Commodity analysis page (`streamlit_app/pages/commodity_analysis.py`)
+- [ ] Commodity analysis page (`dash_app/layouts/commodity_analysis.py`)
 - [ ] Auto-routing in Research Hub (detect commodity ticker, route to commodity page)
 - [ ] Relative strength vs broad market (1/3/6/12m momentum)
 - [ ] Inflation & interest rate sensitivity metrics
-- [ ] Supply & demand signal indicators
 
 **Done when:** commodity tickers are auto-detected in the Research Hub and route to a dedicated commodity analysis page with scoring, momentum and macro-sensitivity signals.
 
@@ -65,10 +79,10 @@
 - Insider scoring: exponential time decay, half-life 45 days — `decay = exp(−ln2 × days_ago / 45)`. Very recent trades (≤14d) get an alert banner in the UI.
 - Investment thesis: rule-based (no LLM). Overall score = Fundamentals 30% + Valuation 25% + Technical 20% + Sector 15% + Insider 10%.
 - ETF detection via `quoteType`/`legalType` in yfinance info; auto-routes to ETF analysis page in Research Hub.
-- Metric cards: `st.container(border=True)` + `st.popover` inside the container — the only reliable approach; injected `<style>` blocks are stripped by Streamlit Cloud's HTML sanitiser.
 - Beta calculation: rename both series to `_a`/`_b` before `pd.concat` to prevent duplicate-column ValueError when asset ticker == benchmark ticker.
 - Timezone: strip tz-info from yfinance DatetimeIndex before `concat`/`reindex` — newer yfinance returns tz-aware index for some exchanges (fix in `data_service._download()` + `analysis_runner.py`).
 - Research implementation order: Stocks → ETFs → Commodities.
+- **UI migration: Streamlit → Dash** (2026-06-16). Full control over CSS/layout. Dark Bloomberg theme. `dcc.Store` for state. `@callback` with `allow_duplicate=True` for multi-writer stores. `dash_app/` is the active UI; `streamlit_app/` kept as legacy reference.
 
 ---
 
@@ -86,3 +100,4 @@
 - 2026-06-16 · Phase 21 · Research Report: rule-based thesis generator, technical scorer (RSI/MA/MACD/momentum), unified report page + Research Report tab.
 - 2026-06-16 · Phase 22 · ETF Research Module: etf_fetcher, etf_scorer, etf_analysis page (5 tabs), auto-routing in Research Hub.
 - 2026-06-16 · Bugfixes · Beta ValueError (duplicate column names when asset==benchmark); timezone ValueError (tz-aware DatetimeIndex); metric card info icon moved inside card via st.container(border=True).
+- 2026-06-16 · Phase 23 · Full Dash migration: dark Bloomberg UI, sidebar, Portfolio Hub (dashboard/asset analysis/Monte Carlo), Research Hub (screener/watchlists/company/sector). Entry: python dash_app/app.py.

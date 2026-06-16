@@ -13,7 +13,7 @@ This file is the standing context for the project. Read it in full at the start 
 
 ## What we are building
 
-A **two-hub web application** for stock/ETF portfolio analysis and equity research, deployed on **Streamlit Cloud** (publicly accessible, no local install required). The target feel is a professional tool in the spirit of Bloomberg / Morningstar Direct / Portfolio Visualizer / FactSet.
+A **two-hub web application** for stock/ETF portfolio analysis and equity research. The target feel is a professional tool in the spirit of Bloomberg / Morningstar Direct / Portfolio Visualizer / FactSet. UI is built in **Dash** (dark Bloomberg-style theme).
 
 ### Portfolio Hub
 Users build a portfolio of tickers and run risk, return and optimisation analyses on historical market data from Yahoo Finance. The dashboard shows metrics, charts, optimisation and scenario analysis in one scrollable page that refreshes on "Analyse Portfolio".
@@ -21,45 +21,98 @@ Users build a portfolio of tickers and run risk, return and optimisation analyse
 ### Research Hub
 Stock screener (4 universes), company fundamentals, valuation engine, insider activity tracker, sector intelligence, investment thesis generator, and ETF deep-dive — all in one tab-based workspace. Automatically routes ETF tickers to the ETF analysis page and stocks to the company analysis flow.
 
+## Token Efficiency Rules
+
+### General
+* Minimize token usage without reducing correctness.
+* Be concise.
+* Do not repeat known context.
+* Reuse established assumptions.
+
+### Context
+* Read only relevant files.
+* Do not scan the repository unless required.
+* Identify files before opening them.
+* Ask for missing information instead of broad searching.
+
+### Analysis
+* Keep reasoning internal.
+* Return only conclusions.
+* Maximum 5 bullets unless requested otherwise.
+
+### Plan
+* Provide a short plan before coding.
+* Include only necessary steps.
+
+### Code Changes
+* Make the smallest effective change.
+* Prefer modifying existing code.
+* Avoid unnecessary refactoring.
+* Do not rewrite unaffected code.
+
+### Output
+Use:
+1. Analysis
+2. Plan
+3. Code Changes
+
+### Code Output
+* Show only changed code.
+* Prefer diffs.
+* Never output full files unless requested.
+* Omit unchanged code.
+
+### Communication
+* Be direct.
+* No repetition.
+* No unnecessary explanations.
+
+### Troubleshooting
+* Focus on the most likely root cause.
+* Ask for additional information only when needed.
+
+### Defaults
+* Follow CLAUDE.md standards.
+* Use the shortest response that fully completes the task.
+
+### Search Strategy
+Before reading code:
+1. Identify candidate files.
+2. Read only the most relevant files.
+3. Stop searching once sufficient information is found.
+
 ## Technology stack (locked — do not substitute)
 
 | Layer | Technology |
 |-------|-----------|
-| UI framework | **Streamlit ≥ 1.35** |
-| Charts | **Plotly** (`plotly.graph_objects`) via `st.plotly_chart` |
+| UI framework | **Dash ≥ 2.14** (`dash`, `dcc`, `html`, `@callback`) |
+| Charts | **Plotly** (`plotly.graph_objects`) via `dcc.Graph` |
+| State | **`dcc.Store`** (session + memory storage) |
 | Data | **yfinance**, **pandas**, **numpy** |
 | Analytics | **scipy**, **statsmodels**, **PyPortfolioOpt** |
-| Deployment | **Streamlit Cloud** (GitHub auto-deploy) |
-| Python | 3.12 |
+| Deployment | WSGI server — `app.server` exposes Flask; or any PaaS |
+| Python | 3.12+ |
 
-**No PySide6, no matplotlib/seaborn in the UI, no Qt, no local-only desktop app.**
+**No Streamlit in the UI layer. No PySide6, no matplotlib/seaborn, no Qt.**
+
+`streamlit_app/` is superseded by `dash_app/` but kept for reference.
 
 ## Repository structure
 
 ```
 project/
-├── streamlit_app/
-│   ├── app.py                    # entry point: two-hub navigation (Portfolio / Research)
-│   ├── pages/
-│   │   ├── dashboard.py          # Portfolio metrics, charts, optimisation, scenario
-│   │   ├── asset_analysis.py     # Per-asset breakdown
-│   │   ├── monte_carlo.py        # Monte Carlo simulation
-│   │   ├── research_hub.py       # Research Hub shell (4 tabs)
-│   │   ├── screener.py           # Stock screener with universe selector
-│   │   ├── fundamentals.py       # Company fundamentals detail page
-│   │   ├── valuation.py          # Valuation engine (DCF, multiples, historical)
-│   │   ├── insider.py            # Insider activity with time-decay scoring
-│   │   ├── sector_intel.py       # Sector Intelligence page
-│   │   ├── research_report.py    # Unified Investment Thesis / Research Report tab
-│   │   └── etf_analysis.py       # ETF deep-dive (Overview / Holdings / Exposure / Performance / Score)
+├── dash_app/                     # ← ACTIVE UI (replaces streamlit_app/)
+│   ├── app.py                    # Entry point: python dash_app/app.py → http://localhost:8050
+│   ├── assets/
+│   │   └── style.css             # Full dark Bloomberg theme
 │   ├── components/
-│   │   ├── analysis_runner.py    # Fetch prices + compute all portfolio analytics
-│   │   ├── portfolio_builder.py  # Sidebar: ticker input, weight sliders, settings
-│   │   └── export_panel.py       # CSV / Excel / PDF export UI
-│   ├── styles/
-│   │   └── theme.py              # Shared colour constants (ACCENT, BG_*, BORDER, etc.)
-│   └── state/
-│       └── session.py            # st.session_state wrappers (portfolio, result, settings)
+│   │   ├── theme.py              # Colour constants + Plotly layout defaults
+│   │   └── analysis_runner.py    # Pure analysis: dict in → JSON dict out (no Streamlit)
+│   └── layouts/
+│       ├── portfolio_hub.py      # Portfolio Hub layout + all callbacks
+│       └── research_hub.py       # Research Hub layout + all callbacks
+│
+├── streamlit_app/                # Legacy — kept for reference, not the active UI
 │
 ├── analytics/                    # Pure functions — NO Streamlit, NO network, NO disk
 │   ├── returns.py                # CAGR, annualised return, CAPM
@@ -151,26 +204,30 @@ project/
 
 ## Key design decisions already made
 
-- Streamlit Cloud deployment (not local desktop). GitHub push → auto-redeploy.
-- Charts: Plotly only (not matplotlib). `st.plotly_chart(fig, use_container_width=True)`.
-- Metric cards: `st.container(border=True)` + `st.popover` inside — the only reliable way to place the info icon inside the card on Streamlit Cloud (injected `<style>` blocks are sanitised).
-- Insider scoring uses **exponential time decay** with half-life 45 days: `decay = exp(−ln2 × days_ago / 45)`.
-- Investment thesis is **rule-based** (no LLM). Overall score = Fundamentals 30 % + Valuation 25 % + Technical 20 % + Sector 15 % + Insider 10 %.
-- ETF detection via `quoteType` / `legalType` in yfinance info; auto-routes to ETF analysis page.
-- Research Hub uses `st.tabs` inside the Company Look-up tab; ETF tickers bypass those tabs.
+- **UI framework: Dash** (migrated from Streamlit). Full CSS control, real sidebar, true grid layout.
+- **State: `dcc.Store`** — `pf-store` (session) holds portfolio config dict; `result-store` (memory) holds serialised analysis JSON. No server-side session state.
+- **Analysis runner** (`dash_app/components/analysis_runner.py`): pure function, no framework coupling. Takes `pf_data: dict`, returns `(result_dict | None, error_str | None)`. Module-level dict cache keyed by `(tickers, benchmark, period)`.
+- **Callbacks**: all use `@callback` from `dash` (not `@app.callback`). Multiple callbacks write to same Store with `allow_duplicate=True`.
+- **Charts**: Plotly only. `dcc.Graph(config={"displayModeBar": False})`.
+- **Dark theme**: Bloomberg-style (`#0d1117` background, `#f78166` accent). Full CSS in `dash_app/assets/style.css`.
+- **Beta fix**: rename series to `_a`/`_b` before `pd.concat` to prevent duplicate-column ValueError when asset == benchmark.
+- **Timezone fix**: strip tz-info from yfinance DatetimeIndex before `concat`/`reindex`.
+- **Insider scoring**: exponential time decay, half-life 45 days: `decay = exp(−ln2 × days_ago / 45)`.
+- **Investment thesis**: rule-based (no LLM). Score = Fundamentals 30% + Valuation 25% + Technical 20% + Sector 15% + Insider 10%.
+- **ETF detection**: `quoteType`/`legalType` in yfinance info; auto-routes in Research Hub Company Look-up.
 
 ## How to run
 
 ```bash
-# Local development
+# Install dependencies
 pip install -r requirements.txt
-streamlit run streamlit_app/app.py
+
+# Run Dash app (active UI)
+python dash_app/app.py
+# → http://localhost:8050
 
 # Tests (must not hit network)
 pytest
-
-# Production
-git push origin master   # Streamlit Cloud auto-deploys from GitHub
 ```
 
 ## Definition of done (whole project)

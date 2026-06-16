@@ -27,6 +27,8 @@ from streamlit_app.styles.theme import (
 from streamlit_app.pages import screener as _screener_page
 from streamlit_app.pages import fundamentals as _fund_page
 from streamlit_app.pages import valuation as _val_page
+from streamlit_app.pages import insider as _insider_page
+from streamlit_app.pages import sector_intel as _sector_page
 
 _WL_KEY = "active_watchlist"
 
@@ -61,8 +63,8 @@ def _bn(v: float) -> str:
 
 
 def render() -> None:
-    tab_scr, tab_wl, tab_company = st.tabs(
-        ["🔍 Screener", "📋 Watchlists", "🏢 Company Look-up"]
+    tab_scr, tab_wl, tab_company, tab_sector = st.tabs(
+        ["🔍 Screener", "📋 Watchlists", "🏢 Company Look-up", "🏭 Sector Intelligence"]
     )
 
     with tab_scr:
@@ -73,6 +75,9 @@ def render() -> None:
 
     with tab_company:
         _render_company_lookup()
+
+    with tab_sector:
+        _sector_page.render()
 
 
 # ── Watchlist tab ──────────────────────────────────────────────────────────────
@@ -275,9 +280,13 @@ def _render_company_lookup() -> None:
 
     _divider()
 
-    # Fundamentals / Valuation tabs (Phase 18 + 19)
-    tab_fund, tab_val = st.tabs(["📊 Fundamentals", "💰 Valuation"])
+    # Fundamentals / Valuation / Insider tabs
+    tab_fund, tab_val, tab_ins = st.tabs(
+        ["📊 Fundamentals", "💰 Valuation", "🕵️ Insider Activity"]
+    )
     with tab_fund:
         _fund_page.render_detail(ticker, funds, quarters, analysis)
     with tab_val:
         _val_page.render_detail(ticker, funds, profile)
+    with tab_ins:
+        _insider_page.render_detail(ticker)

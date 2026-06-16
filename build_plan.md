@@ -11,9 +11,9 @@
 
 ## Current status
 
-- **Phase:** 19 — Valuation Engine ✅ Complete
-- **Next step:** Phase 20 — Insider Activity & Sector Intelligence
-- **Last updated:** 2026-06-15
+- **Phase:** 20 — Insider Activity & Sector Intelligence ✅ Complete
+- **Next step:** Phase 21 — Research Dashboard & Investment Thesis
+- **Last updated:** 2026-06-16
 - **Notes:** Phase 17 ships the Stock Screener with 4 universes (AEX, Nasdaq 100, S&P 500, STOXX 600 top-50), composite scoring (Overall 40% Fundamentals + 35% Valuation + 25% Trend), daily disk cache, filter controls (sector/country/min score), sortable table, and ticker detail panel. Research Hub is now the default app landing. Watchlist scoring deferred to Phase 18 (depends on richer fundamentals). Screener responsive/mobile table done via Streamlit's native dataframe.
 
 ---
@@ -42,7 +42,7 @@
 | 17 | Research Hub & Stock Screener | ✅ Done |
 | 18 | Stock Fundamentals Engine | ✅ Done |
 | 19 | Valuation Engine | ✅ Done |
-| 20 | Insider Activity & Sector Intelligence | ⬜ |
+| 20 | Insider Activity & Sector Intelligence | ✅ Done |
 | 21 | Research Dashboard & Investment Thesis | ⬜ |
 | 22 | ETF Research Module | ⬜ |
 | 23 | Commodities Research Module | ⬜ |
@@ -896,6 +896,15 @@ Generate concise:
 
 with supporting rationale.
 
+### New files
+
+- `research/data/insider_fetcher.py` — yfinance insider_transactions fetch + horizon filter
+- `research/analytics/insider_scorer.py` — role-weighted buy/sell scoring (CEO>CFO>Officer>Director), InsiderAnalysis dataclass, InsiderSummary per horizon
+- `research/data/sector_data.py` — SECTOR_ETF_MAP, ETF price fetch, momentum(), relative_strength(), aggregate_sector_fundamentals() from screener cache
+- `research/analytics/sector_intelligence.py` — SectorIntelligence dataclass, analyze_sector(), sector score (35% momentum + 25% trend + 25% fund + 15% val), SWOT builder, PESTLE templates for 11 sectors
+- `streamlit_app/pages/insider.py` — Insider Activity UI: KPI strip, buy/sell bar chart, transaction table, score explanation
+- `streamlit_app/pages/sector_intel.py` — Sector Intelligence UI: momentum + relative strength charts, sector fundamentals KPIs, SWOT, PESTLE expander
+
 ### Done when
 
 Users understand both company quality and sector attractiveness.
@@ -1224,3 +1233,4 @@ If straightforward: Rebalancing Advisor (how to return to target weights), Divid
 - 2026-06-08: Phase 8 — all 5 tabs functional; analytics/scenario.py + analytics/monte_carlo.py; analysis_ready signal wired to all tabs; 223 tests passing.
 - 2026-06-08: Phase 9 — CSV/Excel/PDF exporters + Export menu in MainWindow; all exports smoke-tested; 223 tests passing.
 - 2026-06-08: Phase 10 — test_scenario (18), test_monte_carlo (16), test_exports (21), test_health_score (32); analytics/health_score.py; README.md; 311 tests passing.
+- 2026-06-16: Phase 20 — insider_fetcher, insider_scorer (role-weighted buy/sell score 0-100), sector_data (ETF prices + screener aggregation), sector_intelligence (score + SWOT + PESTLE for 11 sectors), insider.py UI, sector_intel.py UI; wired into research_hub.py tabs.

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import html as _html
 import math
 import sys
 from datetime import date, timedelta
@@ -149,107 +148,44 @@ _INFO: dict[str, str] = {
 }
 
 
-# ── Metric card CSS ────────────────────────────────────────────────────────────
+# ── Metric card CSS — overrides st.container(border=True) appearance ───────────
 
 _METRIC_CSS = f"""<style>
-.metric-card {{
-    background:{BG_SECONDARY};
-    border:1px solid {BORDER};
-    border-radius:8px;
-    padding:12px 16px;
-    margin-bottom:7px;
-    box-shadow:0 1px 3px rgba(35,29,21,.06);
+/* Metric cards — target the bordered container wrapper */
+[data-testid="stVerticalBlockBorderWrapper"] {{
+    background: {BG_SECONDARY} !important;
+    border: 1px solid {BORDER} !important;
+    border-radius: 8px !important;
+    padding: 10px 14px 10px 14px !important;
+    margin-bottom: 6px !important;
+    box-shadow: 0 1px 3px rgba(35,29,21,.06);
 }}
-.metric-header {{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:5px;
+/* Collapse Streamlit's inner gap so label/value sit tight */
+[data-testid="stVerticalBlockBorderWrapper"] > div > div {{
+    gap: 0px !important;
 }}
-.metric-label {{
-    font-size:10px;
-    color:{TEXT_SECONDARY};
-    text-transform:uppercase;
-    letter-spacing:.06em;
+/* Make the popover trigger button tiny and circular */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stPopover"] button {{
+    width: 20px !important;
+    height: 20px !important;
+    min-height: 20px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    border: 1px solid {BORDER} !important;
+    background: transparent !important;
+    color: {TEXT_SECONDARY} !important;
+    font-size: 11px !important;
+    line-height: 1 !important;
 }}
-.metric-value {{
-    font-size:20px;
-    font-weight:700;
-    text-align:right;
-    letter-spacing:-.02em;
-    margin:0;
-    line-height:1.2;
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stPopover"] button:hover {{
+    background: {BORDER} !important;
+    color: {TEXT_PRIMARY} !important;
 }}
-.info-wrap {{
-    position:relative;
-    display:inline-block;
-    flex-shrink:0;
-}}
-.info-btn {{
-    width:16px;
-    height:16px;
-    border-radius:50%;
-    background:{BORDER};
-    color:{TEXT_SECONDARY};
-    font-size:9px;
-    font-weight:700;
-    font-style:normal;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    cursor:default;
-    user-select:none;
-    line-height:1;
-    transition:background .15s,color .15s;
-}}
-.info-wrap:hover .info-btn {{
-    background:{TEXT_SECONDARY};
-    color:{BG_SECONDARY};
-}}
-.info-popup {{
-    display:none;
-    position:absolute;
-    right:0;
-    top:22px;
-    width:270px;
-    background:{BG_TERTIARY};
-    border:1px solid {BORDER};
-    border-radius:8px;
-    padding:11px 13px;
-    font-size:12px;
-    color:{TEXT_PRIMARY};
-    z-index:9999;
-    line-height:1.55;
-    box-shadow:0 6px 20px rgba(0,0,0,.45);
-    pointer-events:none;
-}}
-.info-popup strong {{ color:{TEXT_PRIMARY}; font-weight:700; }}
-.info-popup .info-title {{
-    font-size:11px;
-    font-weight:700;
-    color:{TEXT_PRIMARY};
-    text-transform:uppercase;
-    letter-spacing:.05em;
-    margin-bottom:7px;
-    padding-bottom:5px;
-    border-bottom:1px solid {BORDER};
-}}
-.info-wrap:hover .info-popup {{ display:block; }}
-.metric-sub {{
-    font-size:11px;
-    margin-top:4px;
+/* Hide the caret/arrow that Streamlit adds to popover buttons */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stPopover"] button svg {{
+    display: none !important;
 }}
 </style>"""
-
-
-def _md_to_tooltip(text: str) -> str:
-    """Convert basic Markdown to safe HTML for the CSS tooltip."""
-    result = text.replace("**", "\x00BOLD\x00").replace("*", "")
-    result = _html.escape(result)
-    result = result.replace("\x00BOLD\x00", "")
-    result = result.replace("\n\n", "<br><br>")
-    result = result.replace("\n", "<br>")
-    return result
 
 
 # ── UI components ──────────────────────────────────────────────────────────────
@@ -263,35 +199,39 @@ def _metric(
 ) -> None:
     info_text = _INFO.get(label, "")
 
-    info_html = ""
-    if info_text:
-        tooltip_body = _md_to_tooltip(info_text)
-        info_html = (
-            f'<div class="info-wrap">'
-            f'<i class="info-btn">i</i>'
-            f'<div class="info-popup">'
-            f'<div class="info-title">{_html.escape(label)}</div>'
-            f'{tooltip_body}'
-            f'</div>'
-            f'</div>'
+    with st.container(border=True):
+        # Label row: name on the left, info popover on the right
+        if info_text:
+            lc, ic = st.columns([9, 1])
+            lc.markdown(
+                f'<span style="font-size:10px; color:{TEXT_SECONDARY}; '
+                f'text-transform:uppercase; letter-spacing:.06em;">{label}</span>',
+                unsafe_allow_html=True,
+            )
+            with ic:
+                with st.popover("ⓘ", use_container_width=True):
+                    st.markdown(f"**{label}**\n\n{info_text}")
+        else:
+            st.markdown(
+                f'<span style="font-size:10px; color:{TEXT_SECONDARY}; '
+                f'text-transform:uppercase; letter-spacing:.06em;">{label}</span>',
+                unsafe_allow_html=True,
+            )
+
+        # Value
+        st.markdown(
+            f'<div style="font-size:20px; font-weight:700; color:{color}; '
+            f'text-align:right; letter-spacing:-.02em; margin:4px 0 0 0; line-height:1.2;">'
+            f'{value}</div>',
+            unsafe_allow_html=True,
         )
 
-    sub_html = (
-        f'<div class="metric-sub" style="color:{sub_color};">{sub}</div>'
-        if sub else ""
-    )
-
-    card_html = (
-        f'<div class="metric-card">'
-        f'<div class="metric-header">'
-        f'<span class="metric-label">{label}</span>'
-        f'{info_html}'
-        f'</div>'
-        f'<div class="metric-value" style="color:{color};">{value}</div>'
-        f'{sub_html}'
-        f'</div>'
-    )
-    st.markdown(card_html, unsafe_allow_html=True)
+        # Optional sub-label
+        if sub:
+            st.markdown(
+                f'<div style="font-size:11px; color:{sub_color}; margin-top:3px;">{sub}</div>',
+                unsafe_allow_html=True,
+            )
 
 
 def _section_header(title: str, color: str = ACCENT) -> None:

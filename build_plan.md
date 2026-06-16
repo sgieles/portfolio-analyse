@@ -101,3 +101,4 @@ Complete rebuild of the UI layer from Streamlit to Dash:
 - 2026-06-16 · Phase 22 · ETF Research Module: etf_fetcher, etf_scorer, etf_analysis page (5 tabs), auto-routing in Research Hub.
 - 2026-06-16 · Bugfixes · Beta ValueError (duplicate column names when asset==benchmark); timezone ValueError (tz-aware DatetimeIndex); metric card info icon moved inside card via st.container(border=True).
 - 2026-06-16 · Phase 23 · Full Dash migration: dark Bloomberg UI, sidebar, Portfolio Hub (dashboard/asset analysis/Monte Carlo), Research Hub (screener/watchlists/company/sector). Entry: python dash_app/app.py.
+- 2026-06-16 · Infra · Render.com deployment live (https://portfolio-analyse.onrender.com); iPhone PWA support (meta tags, manifest, touch icon); CLAUDE.md cleanup.

@@ -1,9 +1,0 @@
-# Additional dependency for the PySide6 desktop app (main.py).
-# Install this ON TOP of requirements.txt when running the desktop interface:
-#
-#   pip install -r requirements.txt
-#   pip install -r requirements-desktop.txt
-#
-# Streamlit Community Cloud: do NOT install this file.
-
-PySide6>=6.10

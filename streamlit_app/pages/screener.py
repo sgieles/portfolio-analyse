@@ -103,19 +103,19 @@ def _build_rows(universe: str, tickers: list[str]) -> list[ScreenerRow]:
         progress.progress((i + 1) / n, text=f"Scoring {ticker} ({i+1}/{n})…")
 
     progress.empty()
-    save_screener_rows(universe, rows)
+    save_screener_rows(universe, rows, tickers)
     return rows
 
 
 def _load_or_build(universe: str) -> list[ScreenerRow]:
-    """Return cached screener rows (today) or build them fresh."""
-    cached = load_screener_rows(universe)
-    if cached is not None:
-        return [ScreenerRow(**r) for r in cached]
+    """Return cached screener rows (today, same tickers) or build fresh."""
     tickers = get_universe(universe)
     if not tickers:
         st.error(f"Could not fetch ticker list for {universe}.")
         return []
+    cached = load_screener_rows(universe, tickers)
+    if cached is not None:
+        return [ScreenerRow(**r) for r in cached]
     return _build_rows(universe, tickers)
 
 
@@ -231,8 +231,12 @@ def render() -> None:
     run_btn = u_cols[1].button("▶ Run Screener", type="primary", key="scr_run")
     refresh_btn = u_cols[2].button("↺ Refresh", key="scr_refresh")
 
-    # Check for cached today's data
-    cached_rows = load_screener_rows(universe)
+    # Check for cached today's data (also validates ticker list hasn't changed)
+    tickers = get_universe(universe)
+    if not tickers:
+        st.error("Could not retrieve ticker list. Check your internet connection.")
+        return
+    cached_rows = load_screener_rows(universe, tickers)
     has_cache = cached_rows is not None
 
     if has_cache and not refresh_btn:
@@ -248,10 +252,6 @@ def render() -> None:
                 f"Loading **{hint} tickers** from yfinance. "
                 f"First run takes ~{hint // 10} min; results are cached for the day."
             )
-        tickers = get_universe(universe)
-        if not tickers:
-            st.error("Could not retrieve ticker list. Check your internet connection.")
-            return
         rows = _build_rows(universe, tickers)
     else:
         # Nothing cached, nothing triggered — show prompt

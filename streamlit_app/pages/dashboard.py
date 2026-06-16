@@ -235,6 +235,10 @@ _METRIC_CSS = f"""<style>
     border-bottom:1px solid {BORDER};
 }}
 .info-wrap:hover .info-popup {{ display:block; }}
+.metric-sub {{
+    font-size:11px;
+    margin-top:4px;
+}}
 </style>"""
 
 
@@ -242,7 +246,7 @@ def _md_to_tooltip(text: str) -> str:
     """Convert basic Markdown to safe HTML for the CSS tooltip."""
     result = text.replace("**", "\x00BOLD\x00").replace("*", "")
     result = _html.escape(result)
-    result = result.replace("\x00BOLD\x00", "")          # stripped — no bold in tooltip
+    result = result.replace("\x00BOLD\x00", "")
     result = result.replace("\n\n", "<br><br>")
     result = result.replace("\n", "<br>")
     return result
@@ -250,7 +254,13 @@ def _md_to_tooltip(text: str) -> str:
 
 # ── UI components ──────────────────────────────────────────────────────────────
 
-def _metric(label: str, value: str, color: str = TEXT_PRIMARY) -> None:
+def _metric(
+    label: str,
+    value: str,
+    color: str = TEXT_PRIMARY,
+    sub: str = "",
+    sub_color: str = TEXT_SECONDARY,
+) -> None:
     info_text = _INFO.get(label, "")
 
     info_html = ""
@@ -266,6 +276,11 @@ def _metric(label: str, value: str, color: str = TEXT_PRIMARY) -> None:
             f'</div>'
         )
 
+    sub_html = (
+        f'<div class="metric-sub" style="color:{sub_color};">{sub}</div>'
+        if sub else ""
+    )
+
     card_html = (
         f'<div class="metric-card">'
         f'<div class="metric-header">'
@@ -273,6 +288,7 @@ def _metric(label: str, value: str, color: str = TEXT_PRIMARY) -> None:
         f'{info_html}'
         f'</div>'
         f'<div class="metric-value" style="color:{color};">{value}</div>'
+        f'{sub_html}'
         f'</div>'
     )
     st.markdown(card_html, unsafe_allow_html=True)
@@ -508,38 +524,56 @@ def render() -> None:
 
     col1, col2, col3 = st.columns(3)
 
+    _rf = result.settings.risk_free_rate if result.settings else 0.025
+    rf_label = f"rf {_rf * 100:.1f}%"
+
     with col1:
         _section_header("Return", ACCENT)
         _metric("Expected Return (ann.)", _pct(result.portfolio_return),
-                _color(result.portfolio_return, 0.08, 0.02))
+                _color(result.portfolio_return, 0.08, 0.02),
+                sub="daily mean × 252")
         _metric("CAGR", _pct(result.portfolio_cagr),
-                _color(result.portfolio_cagr, 0.08, 0.02))
-        _metric("CAPM Expected Return", _pct(result.portfolio_expected_return_capm))
+                _color(result.portfolio_cagr, 0.08, 0.02),
+                sub="compounded annual")
+        _metric("CAPM Expected Return", _pct(result.portfolio_expected_return_capm),
+                sub="rf + β·(rm−rf)")
 
     with col2:
         _section_header("Risk", "#2563eb")
         _metric("Volatility (ann.)", _pct(result.portfolio_volatility),
-                SUCCESS if result.portfolio_volatility < 0.15 else WARNING if result.portfolio_volatility < 0.25 else DANGER)
+                SUCCESS if result.portfolio_volatility < 0.15 else WARNING if result.portfolio_volatility < 0.25 else DANGER,
+                sub="σ annualized")
         _metric("Sharpe Ratio", _num(result.sharpe_ratio),
-                SUCCESS if result.sharpe_ratio > 1.0 else WARNING if result.sharpe_ratio > 0.5 else DANGER)
+                SUCCESS if result.sharpe_ratio > 1.0 else WARNING if result.sharpe_ratio > 0.5 else DANGER,
+                sub=rf_label)
         _metric("Sortino Ratio", _num(result.sortino_ratio),
-                SUCCESS if result.sortino_ratio > 1.0 else WARNING if result.sortino_ratio > 0.5 else DANGER)
+                SUCCESS if result.sortino_ratio > 1.0 else WARNING if result.sortino_ratio > 0.5 else DANGER,
+                sub="downside-adjusted")
         _metric("Beta vs Benchmark", _num(result.beta),
-                SUCCESS if 0.8 <= result.beta <= 1.2 else WARNING)
+                SUCCESS if 0.8 <= result.beta <= 1.2 else WARNING,
+                sub=f"vs. {pf.benchmark}")
         _metric("Max Drawdown", _pct(result.max_drawdown),
-                DANGER if result.max_drawdown < -0.20 else WARNING if result.max_drawdown < -0.10 else SUCCESS)
-        _metric("VaR 95 %", _pct(result.var_95))
-        _metric("VaR 99 %", _pct(result.var_99))
-        _metric("CVaR (ES)", _pct(result.cvar))
+                DANGER if result.max_drawdown < -0.20 else WARNING if result.max_drawdown < -0.10 else SUCCESS,
+                sub="peak-to-trough", sub_color=DANGER)
+        _metric("VaR 95 %", _pct(result.var_95),
+                sub="historical · 95%", sub_color=DANGER)
+        _metric("VaR 99 %", _pct(result.var_99),
+                sub="historical · 99%", sub_color=DANGER)
+        _metric("CVaR (ES)", _pct(result.cvar),
+                sub="expected shortfall", sub_color=DANGER)
 
     with col3:
         _section_header("Diversification", SUCCESS)
-        _metric("Number of Assets", str(len(result.asset_metrics)))
+        _metric("Number of Assets", str(len(result.asset_metrics)),
+                sub="tickers in portfolio")
         _metric("Avg Correlation", _num(result.avg_correlation),
-                SUCCESS if result.avg_correlation < 0.5 else WARNING if result.avg_correlation < 0.75 else DANGER)
+                SUCCESS if result.avg_correlation < 0.5 else WARNING if result.avg_correlation < 0.75 else DANGER,
+                sub="avg pairwise ρ")
         _metric("Diversification Score", _num(result.diversification_score),
-                SUCCESS if result.diversification_score > 0.3 else WARNING if result.diversification_score > 0.1 else DANGER)
-        _metric("Health Score", f"{hs:.0f} / 100", hs_color)
+                SUCCESS if result.diversification_score > 0.3 else WARNING if result.diversification_score > 0.1 else DANGER,
+                sub="lower ρ = higher score")
+        _metric("Health Score", f"{hs:.0f} / 100", hs_color,
+                sub="composite 0–100")
 
     _divider()
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as _html
 import math
 import sys
 from datetime import date, timedelta
@@ -148,30 +149,133 @@ _INFO: dict[str, str] = {
 }
 
 
+# ── Metric card CSS ────────────────────────────────────────────────────────────
+
+_METRIC_CSS = f"""<style>
+.metric-card {{
+    background:{BG_SECONDARY};
+    border:1px solid {BORDER};
+    border-radius:8px;
+    padding:12px 16px;
+    margin-bottom:7px;
+    box-shadow:0 1px 3px rgba(35,29,21,.06);
+}}
+.metric-header {{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:5px;
+}}
+.metric-label {{
+    font-size:10px;
+    color:{TEXT_SECONDARY};
+    text-transform:uppercase;
+    letter-spacing:.06em;
+}}
+.metric-value {{
+    font-size:20px;
+    font-weight:700;
+    text-align:right;
+    letter-spacing:-.02em;
+    margin:0;
+    line-height:1.2;
+}}
+.info-wrap {{
+    position:relative;
+    display:inline-block;
+    flex-shrink:0;
+}}
+.info-btn {{
+    width:16px;
+    height:16px;
+    border-radius:50%;
+    background:{BORDER};
+    color:{TEXT_SECONDARY};
+    font-size:9px;
+    font-weight:700;
+    font-style:normal;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    cursor:default;
+    user-select:none;
+    line-height:1;
+    transition:background .15s,color .15s;
+}}
+.info-wrap:hover .info-btn {{
+    background:{TEXT_SECONDARY};
+    color:{BG_SECONDARY};
+}}
+.info-popup {{
+    display:none;
+    position:absolute;
+    right:0;
+    top:22px;
+    width:270px;
+    background:{BG_TERTIARY};
+    border:1px solid {BORDER};
+    border-radius:8px;
+    padding:11px 13px;
+    font-size:12px;
+    color:{TEXT_PRIMARY};
+    z-index:9999;
+    line-height:1.55;
+    box-shadow:0 6px 20px rgba(0,0,0,.45);
+    pointer-events:none;
+}}
+.info-popup strong {{ color:{TEXT_PRIMARY}; font-weight:700; }}
+.info-popup .info-title {{
+    font-size:11px;
+    font-weight:700;
+    color:{TEXT_PRIMARY};
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    margin-bottom:7px;
+    padding-bottom:5px;
+    border-bottom:1px solid {BORDER};
+}}
+.info-wrap:hover .info-popup {{ display:block; }}
+</style>"""
+
+
+def _md_to_tooltip(text: str) -> str:
+    """Convert basic Markdown to safe HTML for the CSS tooltip."""
+    result = text.replace("**", "\x00BOLD\x00").replace("*", "")
+    result = _html.escape(result)
+    result = result.replace("\x00BOLD\x00", "")          # stripped — no bold in tooltip
+    result = result.replace("\n\n", "<br><br>")
+    result = result.replace("\n", "<br>")
+    return result
+
+
 # ── UI components ──────────────────────────────────────────────────────────────
 
 def _metric(label: str, value: str, color: str = TEXT_PRIMARY) -> None:
+    info_text = _INFO.get(label, "")
+
+    info_html = ""
+    if info_text:
+        tooltip_body = _md_to_tooltip(info_text)
+        info_html = (
+            f'<div class="info-wrap">'
+            f'<i class="info-btn">i</i>'
+            f'<div class="info-popup">'
+            f'<div class="info-title">{_html.escape(label)}</div>'
+            f'{tooltip_body}'
+            f'</div>'
+            f'</div>'
+        )
+
     card_html = (
-        f'<div style="background:{BG_SECONDARY}; border:1px solid {BORDER};'
-        f'border-radius:8px; padding:12px 16px; margin-bottom:7px;'
-        f'box-shadow:0 1px 3px rgba(35,29,21,0.06);">'
-        f'<div style="font-size:10px; color:{TEXT_SECONDARY}; text-transform:uppercase;'
-        f'letter-spacing:0.06em; margin-bottom:5px;">{label}</div>'
-        f'<div style="font-size:20px; font-weight:700; color:{color};'
-        f'text-align:right; letter-spacing:-0.02em;">{value}</div>'
+        f'<div class="metric-card">'
+        f'<div class="metric-header">'
+        f'<span class="metric-label">{label}</span>'
+        f'{info_html}'
+        f'</div>'
+        f'<div class="metric-value" style="color:{color};">{value}</div>'
         f'</div>'
     )
-    info_text = _INFO.get(label)
-    if info_text:
-        card_col, icon_col = st.columns([11, 1])
-        card_col.markdown(card_html, unsafe_allow_html=True)
-        with icon_col:
-            st.markdown("<div style='padding-top:10px'></div>", unsafe_allow_html=True)
-            with st.popover("ⓘ", use_container_width=True):
-                st.markdown(f"**{label}**")
-                st.markdown(info_text)
-    else:
-        st.markdown(card_html, unsafe_allow_html=True)
+    st.markdown(card_html, unsafe_allow_html=True)
 
 
 def _section_header(title: str, color: str = ACCENT) -> None:
@@ -237,6 +341,8 @@ def _filter_series(series, period_label: str):
 # ── Page ───────────────────────────────────────────────────────────────────────
 
 def render() -> None:
+    st.markdown(_METRIC_CSS, unsafe_allow_html=True)
+
     result = session.get_result()
     pf = session.get_portfolio()
 

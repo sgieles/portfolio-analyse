@@ -18,9 +18,9 @@ Pillow>=10.0
 lxml>=5.0
 
 # Web application
-streamlit>=1.35
 dash>=2.14
 plotly>=5.20
+gunicorn>=21.2
 
 # Test runner
 pytest>=8.2

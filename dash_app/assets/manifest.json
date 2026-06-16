@@ -1,0 +1,17 @@
+{
+  "name": "Portfolio Analyser",
+  "short_name": "PA",
+  "description": "Stock & ETF portfolio analysis and equity research",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/assets/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

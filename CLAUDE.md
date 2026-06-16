@@ -93,9 +93,7 @@ Before reading code:
 | Deployment | WSGI server — `app.server` exposes Flask; or any PaaS |
 | Python | 3.12+ |
 
-**No Streamlit in the UI layer. No PySide6, no matplotlib/seaborn, no Qt.**
-
-`streamlit_app/` is superseded by `dash_app/` but kept for reference.
+**No Streamlit. No PySide6, no matplotlib/seaborn, no Qt.**
 
 ## Repository structure
 
@@ -112,9 +110,7 @@ project/
 │       ├── portfolio_hub.py      # Portfolio Hub layout + all callbacks
 │       └── research_hub.py       # Research Hub layout + all callbacks
 │
-├── streamlit_app/                # Legacy — kept for reference, not the active UI
-│
-├── analytics/                    # Pure functions — NO Streamlit, NO network, NO disk
+├── analytics/                    # Pure functions — NO framework, NO network, NO disk
 │   ├── returns.py                # CAGR, annualised return, CAPM
 │   ├── risk.py                   # Volatility, Sharpe, Sortino, beta, drawdown, VaR, CVaR
 │   ├── diversification.py        # Avg correlation, diversification score, risk contributions
@@ -172,11 +168,11 @@ project/
 
 | Layer | May import from | Forbidden |
 |-------|----------------|-----------|
-| `streamlit_app/` | everything | — |
-| `analytics/`, `optimization/` | `models/`, `utils/`, scientific stack | Streamlit, network, disk |
-| `research/analytics/` | `research/models/`, `utils/`, scientific stack | Streamlit, network, disk |
-| `research/data/` | `research/models/`, `utils/`, yfinance | Streamlit |
-| `services/` | `models/`, `utils/`, yfinance | Streamlit |
+| `dash_app/` | everything | — |
+| `analytics/`, `optimization/` | `models/`, `utils/`, scientific stack | Dash, network, disk |
+| `research/analytics/` | `research/models/`, `utils/`, scientific stack | Dash, network, disk |
+| `research/data/` | `research/models/`, `utils/`, yfinance | Dash |
+| `services/` | `models/`, `utils/`, yfinance | Dash |
 
 ## Domain conventions (apply consistently everywhere)
 
@@ -232,7 +228,7 @@ pytest
 
 ## Definition of done (whole project)
 
-All phases 1–22 complete. A fully deployed Streamlit Cloud app with:
+All phases 1–24+ complete. A fully functional Dash app (`python dash_app/app.py`) with:
 - **Portfolio Hub:** metrics dashboard, performance chart, allocation donuts, correlation matrix, drawdown/rolling-vol charts, efficient frontier, optimisation panel, scenario analysis, risk/return contribution charts, export (CSV/Excel/PDF), JSON save/load.
-- **Research Hub:** stock screener (4 universes, composite scoring, daily cache), company fundamentals, valuation engine, insider activity with time-decay, sector intelligence, investment thesis / research report, ETF analysis.
+- **Research Hub:** stock screener (4 universes, composite scoring, daily cache), company fundamentals, valuation engine, insider activity with time-decay, sector intelligence, investment thesis / research report, ETF analysis, commodity analysis.
 - All analytics tests passing (pytest, no network calls).

@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: portfolio-analyser
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn dash_app.app:server --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    envVars:
+      - key: DASH_DEBUG
+        value: false
+      - key: PYTHONUNBUFFERED
+        value: true

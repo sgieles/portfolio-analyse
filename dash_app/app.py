@@ -6,6 +6,7 @@ Open: http://localhost:8050
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -21,7 +22,35 @@ app = Dash(
     assets_folder=str(Path(__file__).parent / "assets"),
     suppress_callback_exceptions=True,
     title="Portfolio Analyser",
+    meta_tags=[
+        {"name": "viewport",                       "content": "width=device-width, initial-scale=1.0"},
+        {"name": "apple-mobile-web-app-capable",   "content": "yes"},
+        {"name": "apple-mobile-web-app-title",     "content": "PA"},
+        {"name": "apple-mobile-web-app-status-bar-style", "content": "black-translucent"},
+        {"name": "theme-color",                    "content": "#0d1117"},
+    ],
 )
+
+# Add manifest + touch-icon links (Dash meta_tags only supports <meta>, not <link>)
+app.index_string = """<!DOCTYPE html>
+<html>
+<head>
+    {%metas%}
+    <title>{%title%}</title>
+    {%favicon%}
+    {%css%}
+    <link rel="manifest" href="/assets/manifest.json">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+</head>
+<body>
+    {%app_entry%}
+    <footer>
+        {%config%}
+        {%scripts%}
+        {%renderer%}
+    </footer>
+</body>
+</html>"""
 server = app.server  # for gunicorn / Streamlit Cloud
 
 # Import layouts AFTER app is created so @callback decorators register correctly
@@ -104,4 +133,6 @@ def go_research(n):
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    app.run(debug=True, port=8050)
+    port = int(os.environ.get("PORT", 8050))
+    debug = os.environ.get("DASH_DEBUG", "true").lower() == "true"
+    app.run(debug=debug, port=port, host="0.0.0.0")

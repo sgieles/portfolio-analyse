@@ -35,6 +35,7 @@ cache/
 
 # Saved portfolios (personal data)
 *.json
+!dash_app/assets/manifest.json
 
 # IDE / OS
 .vscode/

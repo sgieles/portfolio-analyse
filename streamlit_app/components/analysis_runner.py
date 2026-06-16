@@ -55,6 +55,12 @@ def run_analysis() -> AnalysisResult | None:
             return None
 
         prices = fetch.prices.copy()
+        # Strip timezone info from both indices so reindex never raises
+        # ValueError("Cannot join DatetimeIndex with mixed timezones").
+        if hasattr(prices.index, "tz") and prices.index.tz is not None:
+            prices.index = prices.index.tz_localize(None)
+        if hasattr(bench_prices.index, "tz") and bench_prices.index.tz is not None:
+            bench_prices.index = bench_prices.index.tz_localize(None)
         bench_prices = bench_prices.reindex(prices.index).ffill().dropna()
 
         available = set(prices.columns)

@@ -101,7 +101,10 @@ def portfolio_value_series(
     port_rets = portfolio_daily_returns(prices, weights)
     cum = (1.0 + port_rets).cumprod()
     value = start_value * cum
-    first_row = pd.Series([start_value], index=[prices.index[0]], name="Portfolio")
+    # Use the same index type as value to avoid timezone-mismatch ValueError
+    # (newer yfinance may return tz-aware DatetimeIndex for some exchanges)
+    first_idx = value.index[:0].append(pd.DatetimeIndex([prices.index[0]]))[:1]
+    first_row = pd.Series([start_value], index=first_idx, name="Portfolio")
     return pd.concat([first_row, value])
 
 
@@ -117,5 +120,6 @@ def benchmark_value_series(
     cum = (1.0 + rets).cumprod()
     value = start_value * cum
     name = benchmark_prices.name or "Benchmark"
-    first_row = pd.Series([start_value], index=[benchmark_prices.index[0]], name=name)
+    first_idx = value.index[:0].append(pd.DatetimeIndex([benchmark_prices.index[0]]))[:1]
+    first_row = pd.Series([start_value], index=first_idx, name=name)
     return pd.concat([first_row, value])

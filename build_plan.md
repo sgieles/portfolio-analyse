@@ -11,8 +11,8 @@
 
 ## Current status
 
-- **Phase:** 20 — Insider Activity & Sector Intelligence ✅ Complete
-- **Next step:** Phase 21 — Research Dashboard & Investment Thesis
+- **Phase:** 22 — ETF Research Module ✅ Complete
+- **Next step:** Phase 23 — Commodities Research Module
 - **Last updated:** 2026-06-16
 - **Notes:** Phase 17 ships the Stock Screener with 4 universes (AEX, Nasdaq 100, S&P 500, STOXX 600 top-50), composite scoring (Overall 40% Fundamentals + 35% Valuation + 25% Trend), daily disk cache, filter controls (sector/country/min score), sortable table, and ticker detail panel. Research Hub is now the default app landing. Watchlist scoring deferred to Phase 18 (depends on richer fundamentals). Screener responsive/mobile table done via Streamlit's native dataframe.
 
@@ -43,8 +43,8 @@
 | 18 | Stock Fundamentals Engine | ✅ Done |
 | 19 | Valuation Engine | ✅ Done |
 | 20 | Insider Activity & Sector Intelligence | ✅ Done |
-| 21 | Research Dashboard & Investment Thesis | ⬜ |
-| 22 | ETF Research Module | ⬜ |
+| 21 | Research Dashboard & Investment Thesis | ✅ Done |
+| 22 | ETF Research Module | ✅ Done |
 | 23 | Commodities Research Module | ⬜ |
 
 ---
@@ -909,40 +909,32 @@ with supporting rationale.
 
 Users understand both company quality and sector attractiveness.
 
-## Phase 21 — Research Dashboard & Investment Thesis
+## Phase 21 — Research Dashboard & Investment Thesis ✅
 
 *Goal: create an institutional-quality equity research report.*
 
 ### KPI Header
 
-- [ ] Overall Score
-- [ ] Fundamental Score
-- [ ] Valuation Score
-- [ ] Sector Score
-- [ ] Insider Score
-- [ ] Technical Score
+- [x] Overall Score
+- [x] Fundamental Score
+- [x] Valuation Score
+- [x] Sector Score
+- [x] Insider Score
+- [x] Technical Score
 
 ### Research Report Layout
 
-1. Investment Thesis
-2. Fundamentals
-3. Valuation
-4. Insider Activity
-5. Sector Intelligence
-6. Macro Environment
-7. Technical Context
-8. Risk Factors
-9. Final Assessment
+- [x] Investment Thesis (narrative text, 5 paragraphs)
+- [x] Technical Context (RSI, MAs, momentum, MACD)
+- [x] Macro & Sector Environment (sector intel + SWOT)
+- [x] Risk Factors (consolidated risk bullets)
 
 ### AI-Assisted Investment Thesis
 
-Generate a concise explanation of:
-
-- Company quality
-- Sector attractiveness
-- Valuation
-- Risks
-- Overall conclusion
+- [x] Rule-based thesis generator (`research/analytics/thesis_generator.py`)
+- [x] Technical scorer (`research/analytics/technical_scorer.py`)
+- [x] Unified report page (`streamlit_app/pages/research_report.py`)
+- [x] "📋 Research Report" tab added to Company Look-up in Research Hub
 
 ### Done when
 

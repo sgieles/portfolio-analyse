@@ -29,6 +29,9 @@ from streamlit_app.pages import fundamentals as _fund_page
 from streamlit_app.pages import valuation as _val_page
 from streamlit_app.pages import insider as _insider_page
 from streamlit_app.pages import sector_intel as _sector_page
+from streamlit_app.pages import research_report as _report_page
+from streamlit_app.pages import etf_analysis as _etf_page
+from research.data.etf_fetcher import is_etf
 
 _WL_KEY = "active_watchlist"
 
@@ -214,7 +217,27 @@ def _render_company_lookup() -> None:
         funds    = fetch_fundamentals(ticker, n_years=10)
         quarters = _cached_quarterly(ticker)
 
-    # Company header
+    # Detect ETF / mutual fund and route to dedicated page
+    import yfinance as _yf
+    _info = _yf.Ticker(ticker).info or {}
+    if is_etf(_info):
+        st.markdown(
+            f'<div style="background:{BG_SECONDARY}; border:1px solid {BORDER}; border-radius:8px;'
+            f'padding:14px 20px; margin-bottom:14px;">'
+            f'<div style="font-size:20px; font-weight:800; color:{TEXT_PRIMARY};">'
+            f'{profile.name or ticker}'
+            f'<span style="font-size:13px; font-weight:400; color:{TEXT_SECONDARY}; margin-left:10px;">{ticker}</span>'
+            f'</div>'
+            f'<div style="font-size:12px; color:{TEXT_SECONDARY}; margin-top:4px;">'
+            f'{_info.get("fundFamily","—")} · ETF / Fund'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        _etf_page.render_detail(ticker)
+        return
+
+    # Company header (stocks)
     st.markdown(
         f"""<div style="background:{BG_SECONDARY}; border:1px solid {BORDER};
                     border-radius:8px; padding:16px 20px; margin-bottom:14px;">
@@ -280,9 +303,9 @@ def _render_company_lookup() -> None:
 
     _divider()
 
-    # Fundamentals / Valuation / Insider tabs
-    tab_fund, tab_val, tab_ins = st.tabs(
-        ["📊 Fundamentals", "💰 Valuation", "🕵️ Insider Activity"]
+    # Fundamentals / Valuation / Insider / Report tabs
+    tab_fund, tab_val, tab_ins, tab_rep = st.tabs(
+        ["📊 Fundamentals", "💰 Valuation", "🕵️ Insider Activity", "📋 Research Report"]
     )
     with tab_fund:
         _fund_page.render_detail(ticker, funds, quarters, analysis)
@@ -290,3 +313,5 @@ def _render_company_lookup() -> None:
         _val_page.render_detail(ticker, funds, profile)
     with tab_ins:
         _insider_page.render_detail(ticker)
+    with tab_rep:
+        _report_page.render_report(ticker, funds, quarters, analysis, profile)

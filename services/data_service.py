@@ -200,6 +200,12 @@ class DataService:
 
         series.name = ticker
 
+        # Normalise index to timezone-naive dates so all series can be
+        # concat'd / reindex'd together regardless of exchange timezone.
+        if hasattr(series.index, "tz") and series.index.tz is not None:
+            series.index = series.index.tz_convert("UTC").tz_localize(None)
+        series.index = series.index.normalize()  # strip intraday time component
+
         # Check minimum data
         min_days = _MIN_DAYS.get(period, 20)
         if len(series) < min_days:

@@ -124,16 +124,17 @@ def beta(asset_rets: pd.Series, benchmark_rets: pd.Series) -> float:
     Formula: β = Cov(r_asset, r_benchmark) / Var(r_benchmark)
     Uses only the overlapping date range.
     """
-    aligned = pd.concat([asset_rets, benchmark_rets], axis=1).dropna()
+    # Use fixed column names to avoid duplicate-column issue when asset == benchmark ticker.
+    aligned = pd.concat(
+        [asset_rets.rename("_a"), benchmark_rets.rename("_b")], axis=1
+    ).dropna()
     if len(aligned) < 2:
         return float("nan")
     cov_matrix = aligned.cov(ddof=1)
-    bench_col = aligned.columns[-1]
-    asset_col = aligned.columns[0]
-    bench_var = cov_matrix.loc[bench_col, bench_col]
+    bench_var = float(cov_matrix.loc["_b", "_b"])
     if bench_var == 0.0:
         return float("nan")
-    return float(cov_matrix.loc[asset_col, bench_col] / bench_var)
+    return float(cov_matrix.loc["_a", "_b"] / bench_var)
 
 
 def portfolio_beta(

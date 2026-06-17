@@ -561,9 +561,12 @@ def _build_optimization_panel(result: dict) -> html.Div:
     ], className="chart-panel")
 
 
-def _kpi(label, value, sub="", color=TEXT):
+def _kpi(label, value, sub="", color=TEXT, tooltip=""):
     return html.Div([
-        html.Div(label, className="kpi-label"),
+        html.Div([
+            html.Div(label, className="kpi-label"),
+            html.I("i", className="mc-info", **{"data-tooltip": tooltip}) if tooltip else None,
+        ], style={"display": "flex", "justifyContent": "space-between", "alignItems": "flex-start"}),
         html.Div(value, className="kpi-value", style={"color": color}),
         html.Div(sub, className="kpi-sub") if sub else None,
     ], className="kpi-card")
@@ -611,16 +614,28 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
     rf = s.get("portfolio_expected_return_capm")
     bench = result["meta"]["benchmark"]
 
-    # KPI strip
-    hs = s.get("health_score", 0)
+    # Combined KPI strip (2 rows of 7)
+    hs      = s.get("health_score", 0)
+    pv      = s.get("portfolio_volatility") or 1
+    sr      = s.get("sharpe_ratio") or 0
+    so      = s.get("sortino_ratio") or 0
+    mdd     = s.get("max_drawdown") or 0
+    rf_label = f"rf {(result['meta'].get('rf_rate') or 0.025) * 100:.1f}%"
     kpi = html.Div([
-        _kpi("CAGR",        _p(s.get("portfolio_cagr")),       "compounded",       _c(s.get("portfolio_cagr"), 0.08, 0.02)),
-        _kpi("Ann. Return", _p(s.get("portfolio_return")),     "daily × 252",      _c(s.get("portfolio_return"), 0.08, 0.02)),
-        _kpi("Volatility",  _p(s.get("portfolio_volatility")), "σ annualised",     SUCCESS if (s.get("portfolio_volatility") or 1) < 0.15 else WARNING if (s.get("portfolio_volatility") or 1) < 0.25 else DANGER),
-        _kpi("Sharpe",      _n(s.get("sharpe_ratio")),         "rf {:.1f}%".format((result["meta"].get("rf_rate") or 0.025) * 100), _c(s.get("sharpe_ratio"), 1.0, 0.5)),
-        _kpi("Sortino",     _n(s.get("sortino_ratio")),        "downside-adjusted",_c(s.get("sortino_ratio"), 1.0, 0.5)),
-        _kpi("Max DD",      _p(s.get("max_drawdown")),         "peak-to-trough",   DANGER if (s.get("max_drawdown") or 0) < -0.20 else WARNING if (s.get("max_drawdown") or 0) < -0.10 else SUCCESS),
-        _kpi("Health",      f"{hs} / 100",                      "composite score",  SUCCESS if hs >= 60 else WARNING if hs >= 35 else DANGER),
+        _kpi("CAGR",          _p(s.get("portfolio_cagr")),                   "compounded annual",   _c(s.get("portfolio_cagr"), 0.08, 0.02),  "Compound Annual Growth Rate over the full period"),
+        _kpi("Ann. Return",   _p(s.get("portfolio_return")),                 "daily mean × 252",    _c(s.get("portfolio_return"), 0.08, 0.02), "Mean daily return × 252 trading days"),
+        _kpi("CAPM Return",   _p(s.get("portfolio_expected_return_capm")),   rf_label,              TEXT,                                      "Risk-free rate + Beta × (market return − risk-free rate)"),
+        _kpi("Volatility",    _p(pv),                                        "σ annualised",        SUCCESS if pv < 0.15 else WARNING if pv < 0.25 else DANGER, "Standard deviation of daily returns × √252"),
+        _kpi("Sharpe",        _n(sr),                                        rf_label,              _c(sr, 1.0, 0.5),  "(Ann. return − risk-free rate) / Ann. volatility"),
+        _kpi("Sortino",       _n(so),                                        "downside-adjusted",   _c(so, 1.0, 0.5),  "Sharpe but denominator uses downside deviation only"),
+        _kpi("Beta",          _n(s.get("beta")),                             f"vs. {bench}",        TEXT,              f"Sensitivity to {bench} market moves; 1 = moves with market"),
+        _kpi("Max DD",        _p(mdd),                                       "peak-to-trough",      DANGER if mdd < -0.20 else WARNING if mdd < -0.10 else SUCCESS, "Largest peak-to-trough decline in the period"),
+        _kpi("VaR 95%",       _p(s.get("var_95")),                          "historical · 95%",    TEXT,              "Worst expected daily loss 95% of the time (historical method)"),
+        _kpi("CVaR (ES)",     _p(s.get("cvar")),                            "expected shortfall",   TEXT,              "Average loss on days worse than the 95% VaR threshold"),
+        _kpi("Health",        f"{hs} / 100",                                 "composite score",     SUCCESS if hs >= 60 else WARNING if hs >= 35 else DANGER, "Composite 0–100: return, risk, diversification, drawdown"),
+        _kpi("# Assets",      str(result["meta"]["n_assets"]),               "tickers",             TEXT,              "Number of distinct tickers in the portfolio"),
+        _kpi("Avg ρ",         _n(s.get("avg_correlation")),                  "avg pairwise",        _c(-(s.get("avg_correlation") or 0), -0.5, -0.75), "Average pairwise Pearson correlation between assets"),
+        _kpi("Diversif.",     _n(s.get("diversification_score") or 0, 3),   "lower ρ = higher",    TEXT,              "Ratio of weighted avg vol to portfolio vol; higher = more diversified"),
     ], className="kpi-strip")
 
     # Performance chart
@@ -658,38 +673,6 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
         ], className="chart-panel"),
     ], className="chart-row")
 
-    # 3-column metrics
-    pv  = s.get("portfolio_volatility") or 1
-    sr  = s.get("sharpe_ratio") or 0
-    so  = s.get("sortino_ratio") or 0
-    mdd = s.get("max_drawdown") or 0
-    rf_label = f"rf {(result['meta'].get('rf_rate') or 0.025) * 100:.1f}%"
-    metrics = html.Div([
-        html.Div([
-            _section_header("Return", ACCENT),
-            _mc_card("Expected Return (ann.)", _p(s.get("portfolio_return")),      "daily mean × 252",  _c(s.get("portfolio_return"), 0.08, 0.02)),
-            _mc_card("CAGR",                  _p(s.get("portfolio_cagr")),        "compounded annual", _c(s.get("portfolio_cagr"), 0.08, 0.02)),
-            _mc_card("CAPM Expected Return",  _p(s.get("portfolio_expected_return_capm")), f"rf + β·(rm−rf)"),
-        ]),
-        html.Div([
-            _section_header("Risk", BLUE),
-            _mc_card("Volatility (ann.)",  _p(pv),                rf_label,          SUCCESS if pv < 0.15 else WARNING if pv < 0.25 else DANGER),
-            _mc_card("Sharpe Ratio",       _n(sr),                rf_label,          _c(sr, 1.0, 0.5)),
-            _mc_card("Sortino Ratio",      _n(so),                "downside-adjusted", _c(so, 1.0, 0.5)),
-            _mc_card("Beta",               _n(s.get("beta")),     f"vs. {bench}"),
-            _mc_card("Max Drawdown",       _p(mdd),               "peak-to-trough",  DANGER if mdd < -0.20 else WARNING, danger_sub=True),
-            _mc_card("VaR 95 %",           _p(s.get("var_95")),   "historical · 95%", TEXT, danger_sub=True),
-            _mc_card("CVaR (ES)",          _p(s.get("cvar")),     "expected shortfall", TEXT, danger_sub=True),
-        ]),
-        html.Div([
-            _section_header("Diversification", SUCCESS),
-            _mc_card("Number of Assets",     str(result["meta"]["n_assets"]),  "tickers in portfolio"),
-            _mc_card("Avg Correlation",      _n(s.get("avg_correlation")),      "avg pairwise ρ",        _c(-(s.get("avg_correlation") or 0), -0.5, -0.75)),
-            _mc_card("Diversification Score",_n(s.get("diversification_score") or 0, 3), "lower ρ = higher score"),
-            _mc_card("Health Score",         f"{hs} / 100",                     "composite 0–100",       SUCCESS if hs >= 60 else WARNING if hs >= 35 else DANGER),
-        ]),
-    ], className="metrics-grid")
-
     # Correlation matrix + Allocation side by side
     corr_row = html.Div([
         html.Div([
@@ -710,7 +693,7 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
         ], className="chart-row"),
     ])
 
-    return html.Div([kpi, frontier, perf, cumret, chart_row, metrics, corr_row])
+    return html.Div([kpi, frontier, perf, cumret, chart_row, corr_row])
 
 
 # ── Allocation + Optimisation callbacks ───────────────────────────────────────

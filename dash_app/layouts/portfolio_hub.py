@@ -288,7 +288,10 @@ def _corr_fig(result: dict) -> go.Figure:
         textfont=dict(size=11, color=TEXT),
     ))
     fig.update_layout(**PLOTLY, height=300)
-    fig.update_yaxes(autorange="reversed")
+    fig.update_xaxes(side="top", showgrid=False, zeroline=False,
+                     tickfont=dict(color=TEXT, size=11))
+    fig.update_yaxes(autorange="reversed", showgrid=False, zeroline=False,
+                     tickfont=dict(color=TEXT, size=11))
     return fig
 
 

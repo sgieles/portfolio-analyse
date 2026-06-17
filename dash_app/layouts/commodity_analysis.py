@@ -112,7 +112,6 @@ def _price_chart(history, name: str) -> go.Figure:
         **PLOTLY, height=280,
         xaxis=dict(**GRID),
         yaxis=dict(**GRID),
-        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11)),
         showlegend=True,
     )
     return fig

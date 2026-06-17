@@ -412,8 +412,7 @@ def _build_allocation_panel(result: dict) -> html.Div:
                 options=[{"label": "Sector", "value": "sector"},
                          {"label": "Region", "value": "region"}],
                 value="sector", inline=True,
-                inputClassName="period-radio-input",
-                labelClassName="period-btn",
+                className="period-strip",
             ),
         ], className="chart-header"),
         html.Div(id="alloc-bars", children=_alloc_bar_rows(sector_w),
@@ -460,36 +459,60 @@ def _render_opt_content(strategy: str, result: dict) -> html.Div:
     ], style={"display": "grid", "gridTemplateColumns": "repeat(3,1fr)",
               "gap": "10px", "marginBottom": "16px"})
 
-    # Weight bars
+    # Weight bars — current (faded) + optimised (solid) overlay
     cur_weights = current.get("weights", {})
     tgt_weights = target.get("weights", {})
 
     weight_rows = [
         html.Div([
-            html.Span("Current → Optimised weight",
-                      style={"fontSize": "11px", "color": MUTED}),
-            html.Span("Target", style={"fontSize": "11px", "color": MUTED}),
+            html.Div([
+                html.Span("■ ", style={"color": "rgba(200,200,200,0.25)", "fontSize": "10px"}),
+                html.Span("Current", style={"fontSize": "10px", "color": MUTED}),
+                html.Span("  ■ ", style={"color": ACCENT, "fontSize": "10px", "marginLeft": "10px"}),
+                html.Span("Optimised", style={"fontSize": "10px", "color": MUTED}),
+            ]),
+            html.Span("Target %", style={"fontSize": "10px", "color": MUTED}),
         ], style={"display": "flex", "justifyContent": "space-between",
-                  "marginBottom": "8px"}),
+                  "marginBottom": "10px"}),
     ]
     for i, t in enumerate(tickers):
         cur_w = (cur_weights.get(t) or 0) * 100
         tgt_w = (tgt_weights.get(t) or 0) * 100
         color = _TICKER_COLORS[i % len(_TICKER_COLORS)]
+        delta = tgt_w - cur_w
+        delta_str  = f"{delta:+.1f}pp"
+        delta_color = SUCCESS if delta > 0.5 else DANGER if delta < -0.5 else MUTED
         weight_rows.append(html.Div([
+            # Ticker label
             html.Span(t, style={"fontSize": "12px", "fontWeight": "700",
-                                "color": TEXT, "width": "48px", "flexShrink": "0"}),
-            html.Div(
+                                "color": TEXT, "width": "52px", "flexShrink": "0"}),
+            # Double bar track
+            html.Div([
+                # Current weight — faded background
                 html.Div(style={
-                    "width":  f"{min(cur_w, 100):.1f}%",
-                    "height": "100%", "background": color, "borderRadius": "3px",
+                    "position": "absolute", "left": "0", "top": "0",
+                    "width": f"{min(cur_w, 100):.1f}%", "height": "100%",
+                    "background": color, "opacity": "0.25", "borderRadius": "3px",
                 }),
-                style={"flex": "1", "height": "8px", "background": BORDER,
-                       "borderRadius": "3px", "margin": "0 10px"},
-            ),
-            html.Span(f"{tgt_w:.1f}%", style={"fontSize": "12px", "color": MUTED,
-                                               "width": "44px", "textAlign": "right"}),
-        ], style={"display": "flex", "alignItems": "center", "marginBottom": "8px"}))
+                # Optimised weight — solid foreground
+                html.Div(style={
+                    "position": "absolute", "left": "0", "top": "0",
+                    "width": f"{min(tgt_w, 100):.1f}%", "height": "100%",
+                    "background": color, "opacity": "1", "borderRadius": "3px",
+                }),
+            ], style={
+                "flex": "1", "height": "8px", "background": BORDER,
+                "borderRadius": "3px", "margin": "0 10px",
+                "position": "relative",
+            }),
+            # Target % + delta
+            html.Div([
+                html.Span(f"{tgt_w:.1f}%", style={"fontSize": "12px", "color": TEXT,
+                                                   "fontWeight": "600"}),
+                html.Span(f" {delta_str}", style={"fontSize": "10px", "color": delta_color,
+                                                   "marginLeft": "4px"}),
+            ], style={"width": "72px", "textAlign": "right", "flexShrink": "0"}),
+        ], style={"display": "flex", "alignItems": "center", "marginBottom": "10px"}))
 
     apply_btn = html.Button(
         "Apply optimised weights",
@@ -530,8 +553,7 @@ def _build_optimization_panel(result: dict) -> html.Div:
                 id="opt-strategy",
                 options=[{"label": labels[k], "value": k} for k in available],
                 value=default, inline=True,
-                inputClassName="period-radio-input",
-                labelClassName="period-btn",
+                className="period-strip",
             ),
         ], className="chart-header"),
         html.Div(id="opt-display", children=_render_opt_content(default, result)),
@@ -610,8 +632,6 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
                 options=[{"label": p, "value": p} for p in ["1M", "3M", "6M", "YTD", "1Y", "All"]],
                 value=period,
                 className="period-strip",
-                inputClassName="period-radio-input",
-                labelClassName="period-btn",
                 inline=True,
             ),
         ], className="chart-header"),

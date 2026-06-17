@@ -273,10 +273,10 @@ def _render_company(ticker: str) -> html.Div:
 
     # Score breakdown
     score_cards = html.Div([
-        _score_card("Fundamental Score", analysis.overall_score if analysis else None, "composite quality score"),
+        _score_card("Fundamental Score", analysis.fundamental_score if analysis else None, "composite quality score"),
         _score_card("Profitability",     analysis.profitability_score if analysis else None),
         _score_card("Growth",            analysis.growth_score if analysis else None),
-        _score_card("Financial Health",  analysis.financial_health_score if analysis else None),
+        _score_card("Balance Sheet",     analysis.balance_sheet_score if analysis else None),
     ], style={"display": "grid", "gridTemplateColumns": "repeat(4,1fr)", "gap": "10px", "marginBottom": "14px"})
 
     # Company tabs
@@ -582,23 +582,120 @@ def _render_report_tab(ticker: str) -> html.Div:
 # ── Sector renderer ────────────────────────────────────────────────────────────
 
 def _render_sector(sector: str) -> html.Div:
-    from research.pages import sector_intel as _si
+    from research.data.sector_data import (
+        fetch_sector_prices, SECTOR_ETF_MAP, momentum, relative_strength,
+        aggregate_sector_fundamentals,
+    )
+    from research.cache.screener_cache import load_screener_rows
 
-    try:
-        from research.data.sector_fetcher import fetch_sector_summary
-        data = fetch_sector_summary(sector)
-    except Exception:
-        data = None
+    # ── Price momentum ─────────────────────────────────────────────────────────
+    etf_ticker = SECTOR_ETF_MAP.get(sector)
+    prices     = fetch_sector_prices("1y")
+    market     = prices.get("SPY")
 
-    if not data:
-        return html.Div(f"No sector data for {sector}.", className="pf-empty")
+    mom_1m = mom_3m = mom_6m = mom_1y = rs = float("nan")
+    if etf_ticker and etf_ticker in prices:
+        s = prices[etf_ticker]
+        mom_1m = momentum(s, 1)
+        mom_3m = momentum(s, 3)
+        mom_6m = momentum(s, 6)
+        mom_1y = momentum(s, 12)
+        if market is not None:
+            rs = relative_strength(s, market, 12)
+
+    def _ret_card(label: str, val: float) -> html.Div:
+        if math.isnan(val):
+            disp, color = "—", MUTED
+        else:
+            disp  = f"{val*100:+.1f}%"
+            color = SUCCESS if val > 0 else DANGER
+        return html.Div([
+            html.Div(label, className="kpi-label"),
+            html.Div(disp, className="kpi-value", style={"color": color}),
+        ], className="kpi-card")
+
+    mom_row = html.Div([
+        _ret_card("1M Return",   mom_1m),
+        _ret_card("3M Return",   mom_3m),
+        _ret_card("6M Return",   mom_6m),
+        _ret_card("1Y Return",   mom_1y),
+        html.Div([
+            html.Div("vs. SPY (1Y)", className="kpi-label"),
+            html.Div(
+                f"{rs*100:+.1f}%" if not math.isnan(rs) else "—",
+                className="kpi-value",
+                style={"color": SUCCESS if not math.isnan(rs) and rs > 0 else DANGER},
+            ),
+        ], className="kpi-card"),
+    ], style={"display": "grid", "gridTemplateColumns": "repeat(5,1fr)",
+              "gap": "10px", "marginBottom": "14px"})
+
+    # ── Price chart ────────────────────────────────────────────────────────────
+    charts = []
+    if etf_ticker and etf_ticker in prices:
+        s = prices[etf_ticker]
+        # Normalise to 100 at start
+        norm = s / s.iloc[0] * 100
+        dates = [str(d.date()) for d in norm.index]
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=dates, y=norm.values, name=f"{sector} ({etf_ticker})",
+            line=dict(color=ACCENT, width=2),
+        ))
+        if market is not None:
+            mn = market / market.iloc[0] * 100
+            fig.add_trace(go.Scatter(
+                x=[str(d.date()) for d in mn.index], y=mn.values,
+                name="S&P 500 (SPY)", line=dict(color=BLUE, width=1.5, dash="dot"),
+            ))
+        fig.update_layout(**PLOTLY, height=250,
+                          xaxis=dict(**GRID), yaxis=dict(**GRID),
+                          legend=dict(bgcolor="rgba(0,0,0,0)"))
+        charts.append(html.Div([
+            html.Div([html.Span(f"{sector} — Price vs. S&P 500 (1Y, rebased to 100)",
+                                className="chart-title")], className="chart-header"),
+            dcc.Graph(figure=fig, config={"displayModeBar": False}),
+        ], className="chart-panel"))
+
+    # ── Fundamental aggregation from screener cache ────────────────────────────
+    fund_rows = []
+    for u in ("S&P 500", "Nasdaq 100", "STOXX 600", "AEX"):
+        cached = load_screener_rows(u) or []
+        if cached:
+            agg = aggregate_sector_fundamentals(cached, sector)
+            if agg.get("n_peers", 0) > 0:
+                fund_rows.append(html.Tr([
+                    html.Td(u),
+                    html.Td(str(int(agg["n_peers"])), className="num"),
+                    html.Td(_score_badge(agg.get("avg_fund_score")), className="num"),
+                    html.Td(_score_badge(agg.get("avg_val_score")),  className="num"),
+                    html.Td(_score_badge(agg.get("avg_trend_score")), className="num"),
+                    html.Td(_p(agg.get("avg_rev_growth")),           className="num"),
+                    html.Td(_p(agg.get("avg_roe")),                  className="num"),
+                ]))
+
+    fund_panel = html.Div()
+    if fund_rows:
+        fund_panel = html.Div([
+            html.Div([html.Span("Fundamentals by Universe (screener cache)", className="chart-title")],
+                     className="chart-header"),
+            html.Div(html.Table([
+                html.Thead(html.Tr([
+                    html.Th("Universe"), html.Th("Peers"),
+                    html.Th("Fund."), html.Th("Val."), html.Th("Tech."),
+                    html.Th("Rev. Growth"), html.Th("ROE"),
+                ])),
+                html.Tbody(fund_rows),
+            ], className="data-table"), style={"overflowX": "auto"}),
+        ], className="chart-panel")
 
     return html.Div([
-        html.Div([
-            html.Div(sector, style={"fontSize": "17px", "fontWeight": 800, "color": TEXT, "marginBottom": "14px"}),
-        ]),
-        html.Div(str(data), style={"fontSize": "12px", "color": MUTED, "whiteSpace": "pre-wrap"}),
-    ], className="chart-panel")
+        html.Div(sector, style={"fontSize": "17px", "fontWeight": 800,
+                                "color": TEXT, "marginBottom": "14px"}),
+        mom_row,
+        *charts,
+        fund_panel,
+    ])
 
 
 # ── Screener renderer ──────────────────────────────────────────────────────────
@@ -616,6 +713,50 @@ def _render_screener(universe: str) -> tuple[html.Div, str]:
 
     # Sort by composite_score desc
     rows = sorted(rows, key=lambda r: float(r.get("composite_score") or 0), reverse=True)
+
+    # ── Market overview strip ──────────────────────────────────────────────────
+    scores = [float(r["composite_score"]) for r in rows if r.get("composite_score") is not None]
+    avg_score = sum(scores) / len(scores) if scores else 0
+    top3    = rows[:3]
+    bottom3 = rows[-3:][::-1]
+
+    def _mini_card(label, val, color=TEXT):
+        return html.Div([
+            html.Div(label, className="kpi-label"),
+            html.Div(str(val), className="kpi-value", style={"color": color, "fontSize": "16px"}),
+        ], className="kpi-card")
+
+    sector_counts: dict[str, int] = {}
+    for r in rows:
+        sec = r.get("sector") or "Unknown"
+        sector_counts[sec] = sector_counts.get(sec, 0) + 1
+    top_sector = max(sector_counts, key=sector_counts.get) if sector_counts else "—"
+
+    score_color = SUCCESS if avg_score >= 60 else WARNING if avg_score >= 40 else DANGER
+    overview = html.Div([
+        html.Div([
+            _mini_card("Companies",   len(rows)),
+            _mini_card("Avg Score",   f"{avg_score:.0f}", score_color),
+            _mini_card("Top Sector",  top_sector),
+            html.Div([
+                html.Div("Top 3", className="kpi-label"),
+                html.Div([
+                    html.Div(f"{r.get('ticker','—')}  {r.get('composite_score',0):.0f}",
+                             style={"fontSize": "12px", "color": SUCCESS})
+                    for r in top3
+                ]),
+            ], className="kpi-card"),
+            html.Div([
+                html.Div("Bottom 3", className="kpi-label"),
+                html.Div([
+                    html.Div(f"{r.get('ticker','—')}  {r.get('composite_score',0):.0f}",
+                             style={"fontSize": "12px", "color": DANGER})
+                    for r in bottom3
+                ]),
+            ], className="kpi-card"),
+        ], style={"display": "grid", "gridTemplateColumns": "repeat(5,1fr)",
+                  "gap": "10px", "marginBottom": "14px"}),
+    ])
 
     table_rows = []
     for r in rows[:100]:
@@ -647,6 +788,7 @@ def _render_screener(universe: str) -> tuple[html.Div, str]:
 
     status = f"{len(rows)} companies · {universe}"
     return html.Div([
+        overview,
         html.Div(style={"overflowX": "auto"}, children=[table]),
     ], className="chart-panel"), status
 

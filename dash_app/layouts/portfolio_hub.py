@@ -319,6 +319,75 @@ def _frontier_fig(result: dict) -> go.Figure:
 
 # ── Dashboard tab content ──────────────────────────────────────────────────────
 
+def _cumret_fig(result: dict) -> go.Figure:
+    """Cumulative % return rebased to 0 at period start."""
+    pf_s  = result["series"].get("portfolio_growth",  {})
+    bm_s  = result["series"].get("benchmark_growth",  {})
+    bench = result["meta"]["benchmark"]
+
+    fig = go.Figure()
+    if pf_s.get("dates") and pf_s.get("values"):
+        base = pf_s["values"][0]
+        pct  = [(v / base - 1) * 100 for v in pf_s["values"]]
+        fig.add_trace(go.Scatter(
+            x=pf_s["dates"], y=pct, name="Portfolio",
+            line=dict(color=ACCENT, width=2),
+        ))
+    if bm_s.get("dates") and bm_s.get("values"):
+        base = bm_s["values"][0]
+        pct  = [(v / base - 1) * 100 for v in bm_s["values"]]
+        fig.add_trace(go.Scatter(
+            x=bm_s["dates"], y=pct, name=bench,
+            line=dict(color=BLUE, width=1.5, dash="dot"),
+        ))
+    fig.update_layout(
+        **PLOTLY, height=250,
+        xaxis=dict(**GRID),
+        yaxis=dict(**GRID, ticksuffix="%"),
+        legend=dict(bgcolor="rgba(0,0,0,0)"),
+    )
+    return fig
+
+
+def _sector_alloc_fig(result: dict) -> go.Figure | None:
+    """Pie chart of portfolio sector allocation weighted by portfolio weights."""
+    import yfinance as yf
+    tickers = result["tickers"]
+    am      = result.get("asset_metrics", {})
+
+    sector_weights: dict[str, float] = {}
+    for t in tickers:
+        w = am.get(t, {}).get("weight", 0) or 0
+        try:
+            info   = yf.Ticker(t).info or {}
+            sector = info.get("sector") or "Other"
+        except Exception:
+            sector = "Other"
+        sector_weights[sector] = sector_weights.get(sector, 0) + w
+
+    if not sector_weights:
+        return None
+
+    colors = [ACCENT, BLUE, SUCCESS, WARNING, DANGER,
+              "#9e6ede", "#58a6ff", "#3fb950", "#d29922", "#f85149",
+              "#e3b341", "#79c0ff"]
+
+    labels = list(sector_weights.keys())
+    values = [sector_weights[k] * 100 for k in labels]
+
+    fig = go.Figure(go.Pie(
+        labels=labels, values=values,
+        hole=0.5,
+        marker=dict(colors=colors[:len(labels)],
+                    line=dict(color="#0d1117", width=2)),
+        textfont=dict(size=11, color=TEXT),
+        hovertemplate="%{label}: %{value:.1f}%<extra></extra>",
+    ))
+    fig.update_layout(**PLOTLY, height=260,
+                      legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11)))
+    return fig
+
+
 def _kpi(label, value, sub="", color=TEXT):
     return html.Div([
         html.Div(label, className="kpi-label"),
@@ -327,11 +396,30 @@ def _kpi(label, value, sub="", color=TEXT):
     ], className="kpi-card")
 
 
+_METRIC_TOOLTIPS: dict[str, str] = {
+    "Expected Return (ann.)":   "Mean daily return × 252 trading days",
+    "CAGR":                     "Compound Annual Growth Rate over the full period",
+    "CAPM Expected Return":     "Risk-free rate + Beta × (market return − risk-free rate)",
+    "Volatility (ann.)":        "Standard deviation of daily returns × √252",
+    "Sharpe Ratio":             "(Ann. return − risk-free rate) / Ann. volatility",
+    "Sortino Ratio":            "Sharpe but denominator uses downside deviation only",
+    "Beta":                     "Covariance(portfolio, benchmark) / Variance(benchmark)",
+    "Max Drawdown":             "Largest peak-to-trough decline over the full period",
+    "VaR 95 %":                 "Worst daily loss at 95% confidence (historical)",
+    "CVaR (ES)":                "Average loss in the worst 5% of days (Expected Shortfall)",
+    "Number of Assets":         "Total number of tickers in the portfolio",
+    "Avg Correlation":          "Average pairwise correlation across all asset pairs",
+    "Diversification Score":    "1 − average correlation; higher = better diversified",
+    "Health Score":             "Composite 0–100: return, risk, diversification, drawdown",
+}
+
+
 def _mc_card(label, value, sub="", color=TEXT, danger_sub=False):
+    tooltip = _METRIC_TOOLTIPS.get(label, sub)
     return html.Div([
         html.Div([
             html.Span(label, className="mc-label"),
-            html.I("i", className="mc-info"),
+            html.I("i", className="mc-info", **{"data-tooltip": tooltip}),
         ], className="mc-header"),
         html.Div(value, className="mc-value", style={"color": color}),
         html.Div(sub, className=f"mc-sub{'  danger' if danger_sub else ''}") if sub else None,
@@ -380,6 +468,13 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
                   config={"displayModeBar": False}),
     ], className="chart-panel")
 
+    # Cumulative return (% rebased)
+    cumret = html.Div([
+        html.Div([html.Span("Cumulative Return (rebased to period start)", className="chart-title")],
+                 className="chart-header"),
+        dcc.Graph(figure=_cumret_fig(result), config={"displayModeBar": False}),
+    ], className="chart-panel")
+
     # Drawdown + Rolling vol
     chart_row = html.Div([
         html.Div([
@@ -424,11 +519,18 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
         ]),
     ], className="metrics-grid")
 
-    # Correlation heatmap
-    corr = html.Div([
-        html.Div([html.Span("Correlation Matrix", className="chart-title")], className="chart-header"),
-        dcc.Graph(figure=_corr_fig(result), config={"displayModeBar": False}),
-    ], className="heatmap-panel")
+    # Correlation heatmap + Sector allocation
+    sect_fig = _sector_alloc_fig(result)
+    corr_row = html.Div([
+        html.Div([
+            html.Div([html.Span("Correlation Matrix", className="chart-title")], className="chart-header"),
+            dcc.Graph(figure=_corr_fig(result), config={"displayModeBar": False}),
+        ], className="chart-panel"),
+        html.Div([
+            html.Div([html.Span("Sector Allocation", className="chart-title")], className="chart-header"),
+            dcc.Graph(figure=sect_fig, config={"displayModeBar": False}),
+        ], className="chart-panel") if sect_fig else html.Div(),
+    ], className="chart-row")
 
     # Efficient frontier + Optimization
     frontier = html.Div([
@@ -441,7 +543,7 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
         ], className="chart-row"),
     ])
 
-    return html.Div([kpi, perf, chart_row, metrics, corr, frontier])
+    return html.Div([kpi, perf, cumret, chart_row, metrics, corr_row, frontier])
 
 
 def _build_opt_table(result: dict) -> html.Div:

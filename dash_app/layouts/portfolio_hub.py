@@ -319,73 +319,224 @@ def _frontier_fig(result: dict) -> go.Figure:
 
 # ── Dashboard tab content ──────────────────────────────────────────────────────
 
-def _cumret_fig(result: dict) -> go.Figure:
-    """Cumulative % return rebased to 0 at period start."""
-    pf_s  = result["series"].get("portfolio_growth",  {})
-    bm_s  = result["series"].get("benchmark_growth",  {})
-    bench = result["meta"]["benchmark"]
+_ALLOC_COLORS = [
+    ACCENT, BLUE, SUCCESS, WARNING,
+    "#9e6ede", "#e3b341", "#79c0ff", "#3d9970", "#f85149", "#58d68d",
+]
+_TICKER_COLORS = [
+    ACCENT, BLUE, SUCCESS, WARNING,
+    "#9e6ede", "#e3b341", "#79c0ff", "#3d9970", "#f85149", "#58d68d",
+]
 
-    fig = go.Figure()
+_OPT_DESCRIPTIONS = {
+    "max_sharpe":      "Maximises risk-adjusted return — the highest return per unit of volatility (tangency portfolio).",
+    "min_variance":    "Minimises portfolio volatility regardless of return — the lowest-risk feasible portfolio.",
+    "black_litterman": "Blends market equilibrium weights with investor views for a Bayesian optimal allocation.",
+}
+
+
+def _cumret_fig(result: dict) -> go.Figure:
+    pf_s  = result["series"].get("port_val",  {})
+    bm_s  = result["series"].get("bench_val", {})
+    bench = result["meta"]["benchmark"]
+    fig   = go.Figure()
     if pf_s.get("dates") and pf_s.get("values"):
-        base = pf_s["values"][0]
-        pct  = [(v / base - 1) * 100 for v in pf_s["values"]]
-        fig.add_trace(go.Scatter(
-            x=pf_s["dates"], y=pct, name="Portfolio",
-            line=dict(color=ACCENT, width=2),
-        ))
+        base = pf_s["values"][0] or 1
+        pct  = [(v / base - 1) * 100 if v is not None else None for v in pf_s["values"]]
+        fig.add_trace(go.Scatter(x=pf_s["dates"], y=pct, name="Portfolio",
+                                 line=dict(color=ACCENT, width=2)))
     if bm_s.get("dates") and bm_s.get("values"):
-        base = bm_s["values"][0]
-        pct  = [(v / base - 1) * 100 for v in bm_s["values"]]
-        fig.add_trace(go.Scatter(
-            x=bm_s["dates"], y=pct, name=bench,
-            line=dict(color=BLUE, width=1.5, dash="dot"),
-        ))
-    fig.update_layout(
-        **PLOTLY, height=250,
-        xaxis=dict(**GRID),
-        yaxis=dict(**GRID, ticksuffix="%"),
-        legend=dict(bgcolor="rgba(0,0,0,0)"),
-    )
+        base = bm_s["values"][0] or 1
+        pct  = [(v / base - 1) * 100 if v is not None else None for v in bm_s["values"]]
+        fig.add_trace(go.Scatter(x=bm_s["dates"], y=pct, name=bench,
+                                 line=dict(color=BLUE, width=1.5, dash="dot")))
+    fig.update_layout(**PLOTLY, height=250,
+                      xaxis=dict(**GRID), yaxis=dict(**GRID, ticksuffix="%"))
     return fig
 
 
-def _sector_alloc_fig(result: dict) -> go.Figure | None:
-    """Pie chart of portfolio sector allocation weighted by portfolio weights."""
+def _alloc_bar_rows(data: dict[str, float]) -> list:
+    """Return HTML bar-list elements sorted by weight descending."""
+    items = sorted(data.items(), key=lambda x: x[1], reverse=True)
+    rows  = []
+    for i, (label, w) in enumerate(items):
+        pct   = w * 100
+        color = _ALLOC_COLORS[i % len(_ALLOC_COLORS)]
+        rows.append(html.Div([
+            html.Div([
+                html.Span(label,          style={"fontSize": "13px", "color": TEXT}),
+                html.Span(f"{pct:.1f}%",  style={"fontSize": "13px", "color": MUTED, "fontWeight": "600"}),
+            ], style={"display": "flex", "justifyContent": "space-between", "marginBottom": "5px"}),
+            html.Div(
+                html.Div(style={
+                    "width":  f"{min(pct, 100):.1f}%",
+                    "height": "5px",
+                    "background": color,
+                    "borderRadius": "3px",
+                    "transition": "width 0.4s ease",
+                }),
+                style={"background": BORDER, "borderRadius": "3px",
+                       "height": "5px", "marginBottom": "12px"},
+            ),
+        ]))
+    return rows
+
+
+def _fetch_alloc_data(result: dict) -> tuple[dict, dict]:
+    """Return (sector_weights, region_weights) dicts keyed by name, value = portfolio weight."""
     import yfinance as yf
     tickers = result["tickers"]
     am      = result.get("asset_metrics", {})
-
-    sector_weights: dict[str, float] = {}
+    sector_w: dict[str, float] = {}
+    region_w: dict[str, float] = {}
     for t in tickers:
         w = am.get(t, {}).get("weight", 0) or 0
         try:
-            info   = yf.Ticker(t).info or {}
-            sector = info.get("sector") or "Other"
+            info    = yf.Ticker(t).info or {}
+            sector  = info.get("sector")  or "Other"
+            country = info.get("country") or "Other"
         except Exception:
-            sector = "Other"
-        sector_weights[sector] = sector_weights.get(sector, 0) + w
+            sector = country = "Other"
+        sector_w[sector]  = sector_w.get(sector, 0)  + w
+        region_w[country] = region_w.get(country, 0) + w
+    return sector_w, region_w
 
-    if not sector_weights:
-        return None
 
-    colors = [ACCENT, BLUE, SUCCESS, WARNING, DANGER,
-              "#9e6ede", "#58a6ff", "#3fb950", "#d29922", "#f85149",
-              "#e3b341", "#79c0ff"]
+def _build_allocation_panel(result: dict) -> html.Div:
+    sector_w, region_w = _fetch_alloc_data(result)
+    return html.Div([
+        html.Div([
+            html.Span("Allocation", className="chart-title"),
+            dcc.RadioItems(
+                id="alloc-type",
+                options=[{"label": "Sector", "value": "sector"},
+                         {"label": "Region", "value": "region"}],
+                value="sector", inline=True,
+                inputClassName="period-radio-input",
+                labelClassName="period-btn",
+            ),
+        ], className="chart-header"),
+        html.Div(id="alloc-bars", children=_alloc_bar_rows(sector_w),
+                 style={"padding": "4px 0"}),
+        dcc.Store(id="alloc-sector-data", data=sector_w),
+        dcc.Store(id="alloc-region-data", data=region_w),
+    ], className="chart-panel", style={"minHeight": "200px"})
 
-    labels = list(sector_weights.keys())
-    values = [sector_weights[k] * 100 for k in labels]
 
-    fig = go.Figure(go.Pie(
-        labels=labels, values=values,
-        hole=0.5,
-        marker=dict(colors=colors[:len(labels)],
-                    line=dict(color="#0d1117", width=2)),
-        textfont=dict(size=11, color=TEXT),
-        hovertemplate="%{label}: %{value:.1f}%<extra></extra>",
-    ))
-    fig.update_layout(**PLOTLY, height=260,
-                      legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11)))
-    return fig
+def _render_opt_content(strategy: str, result: dict) -> html.Div:
+    opt     = result["optimization"]
+    current = opt.get("current", {})
+    target  = opt.get(strategy, {})
+    tickers = result["tickers"]
+
+    desc = html.Div(_OPT_DESCRIPTIONS.get(strategy, ""),
+                    style={"fontSize": "12px", "color": MUTED,
+                           "marginBottom": "14px", "lineHeight": "1.5"})
+
+    # Metric delta cards
+    def _delta_card(label: str, cur, tgt, is_pct: bool = True, higher_is_better: bool = True):
+        if cur is None or tgt is None:
+            return html.Div([html.Div(label, className="kpi-label"), html.Div("—", className="kpi-value")],
+                            className="kpi-card")
+        delta = tgt - cur
+        fmt   = _p if is_pct else _n
+        delta_str = f"{delta*100:+.1f}pp" if is_pct else f"{delta:+.2f}"
+        good  = delta > 0 if higher_is_better else delta < 0
+        color = SUCCESS if good else DANGER
+        return html.Div([
+            html.Div(label, className="kpi-label"),
+            html.Div([
+                html.Span(f"{fmt(cur)} ", style={"color": MUTED, "fontSize": "13px"}),
+                html.Span("→ ", style={"color": DIM, "fontSize": "13px"}),
+                html.Span(fmt(tgt),       style={"color": TEXT,  "fontSize": "20px", "fontWeight": "700"}),
+            ], style={"marginBottom": "3px"}),
+            html.Div(delta_str, style={"fontSize": "11px", "color": color, "fontWeight": "600"}),
+        ], className="kpi-card")
+
+    metric_row = html.Div([
+        _delta_card("Expected return",   current.get("expected_return"), target.get("expected_return"), higher_is_better=True),
+        _delta_card("Volatility",        current.get("volatility"),      target.get("volatility"),      higher_is_better=False),
+        _delta_card("Sharpe ratio",      current.get("sharpe"),          target.get("sharpe"), is_pct=False, higher_is_better=True),
+    ], style={"display": "grid", "gridTemplateColumns": "repeat(3,1fr)",
+              "gap": "10px", "marginBottom": "16px"})
+
+    # Weight bars
+    cur_weights = current.get("weights", {})
+    tgt_weights = target.get("weights", {})
+
+    weight_rows = [
+        html.Div([
+            html.Span("Current → Optimised weight",
+                      style={"fontSize": "11px", "color": MUTED}),
+            html.Span("Target", style={"fontSize": "11px", "color": MUTED}),
+        ], style={"display": "flex", "justifyContent": "space-between",
+                  "marginBottom": "8px"}),
+    ]
+    for i, t in enumerate(tickers):
+        cur_w = (cur_weights.get(t) or 0) * 100
+        tgt_w = (tgt_weights.get(t) or 0) * 100
+        color = _TICKER_COLORS[i % len(_TICKER_COLORS)]
+        weight_rows.append(html.Div([
+            html.Span(t, style={"fontSize": "12px", "fontWeight": "700",
+                                "color": TEXT, "width": "48px", "flexShrink": "0"}),
+            html.Div(
+                html.Div(style={
+                    "width":  f"{min(cur_w, 100):.1f}%",
+                    "height": "100%", "background": color, "borderRadius": "3px",
+                }),
+                style={"flex": "1", "height": "8px", "background": BORDER,
+                       "borderRadius": "3px", "margin": "0 10px"},
+            ),
+            html.Span(f"{tgt_w:.1f}%", style={"fontSize": "12px", "color": MUTED,
+                                               "width": "44px", "textAlign": "right"}),
+        ], style={"display": "flex", "alignItems": "center", "marginBottom": "8px"}))
+
+    apply_btn = html.Button(
+        "Apply optimised weights",
+        id="opt-apply-btn",
+        n_clicks=0,
+        style={
+            "width": "100%", "marginTop": "14px",
+            "background": ACCENT, "color": "#fff",
+            "border": "none", "borderRadius": "8px",
+            "padding": "12px", "fontSize": "14px",
+            "fontWeight": "700", "cursor": "pointer",
+        },
+    )
+
+    return html.Div([desc, metric_row, *weight_rows, apply_btn])
+
+
+def _build_optimization_panel(result: dict) -> html.Div:
+    opt = result["optimization"]
+    # Determine which strategies succeeded
+    available = [k for k in ("max_sharpe", "min_variance", "black_litterman")
+                 if opt.get(k, {}).get("weights")]
+    if not available:
+        return html.Div([
+            html.Div([html.Span("Optimisation", className="chart-title")], className="chart-header"),
+            html.Div("Optimisation failed — insufficient data or too few assets.",
+                     className="pf-empty"),
+        ], className="chart-panel")
+
+    default = available[0]
+    labels  = {"max_sharpe": "Max Sharpe", "min_variance": "Min Variance",
+               "black_litterman": "Black-Litterman"}
+
+    return html.Div([
+        html.Div([
+            html.Span("Optimisation", className="chart-title"),
+            dcc.RadioItems(
+                id="opt-strategy",
+                options=[{"label": labels[k], "value": k} for k in available],
+                value=default, inline=True,
+                inputClassName="period-radio-input",
+                labelClassName="period-btn",
+            ),
+        ], className="chart-header"),
+        html.Div(id="opt-display", children=_render_opt_content(default, result)),
+        dcc.Store(id="opt-result-store", data=result),
+    ], className="chart-panel")
 
 
 def _kpi(label, value, sub="", color=TEXT):
@@ -519,62 +670,76 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
         ]),
     ], className="metrics-grid")
 
-    # Correlation heatmap + Sector allocation
-    sect_fig = _sector_alloc_fig(result)
+    # Correlation matrix + Allocation side by side
     corr_row = html.Div([
         html.Div([
             html.Div([html.Span("Correlation Matrix", className="chart-title")], className="chart-header"),
             dcc.Graph(figure=_corr_fig(result), config={"displayModeBar": False}),
         ], className="chart-panel"),
-        html.Div([
-            html.Div([html.Span("Sector Allocation", className="chart-title")], className="chart-header"),
-            dcc.Graph(figure=sect_fig, config={"displayModeBar": False}),
-        ], className="chart-panel") if sect_fig else html.Div(),
+        _build_allocation_panel(result),
     ], className="chart-row")
 
-    # Efficient frontier + Optimization
+    # Efficient frontier + Optimisation
     frontier = html.Div([
         html.Div([
             html.Div([
                 html.Div([html.Span("Efficient Frontier", className="chart-title")], className="chart-header"),
                 dcc.Graph(figure=_frontier_fig(result), config={"displayModeBar": False}),
             ], className="chart-panel"),
-            _build_opt_table(result),
+            _build_optimization_panel(result),
         ], className="chart-row"),
     ])
 
     return html.Div([kpi, perf, cumret, chart_row, metrics, corr_row, frontier])
 
 
-def _build_opt_table(result: dict) -> html.Div:
-    opt = result["optimization"]
-    tickers = result["tickers"]
+# ── Allocation + Optimisation callbacks ───────────────────────────────────────
 
-    labels = {"current": "Current", "max_sharpe": "Max Sharpe", "min_variance": "Min Variance", "black_litterman": "Black-Litterman"}
-    colors = {"current": ACCENT, "max_sharpe": SUCCESS, "min_variance": WARNING, "black_litterman": BLUE}
+@callback(
+    Output("alloc-bars", "children"),
+    Input("alloc-type", "value"),
+    State("alloc-sector-data", "data"),
+    State("alloc-region-data", "data"),
+    prevent_initial_call=True,
+)
+def update_alloc_bars(alloc_type, sector_data, region_data):
+    data = sector_data if alloc_type == "sector" else (region_data or {})
+    return _alloc_bar_rows(data)
 
-    rows = []
-    for key, o in opt.items():
-        if not o.get("weights"):
-            continue
-        row_class = "current-row" if key == "current" else ""
-        w_cells = [html.Td(f"{o['weights'].get(t, 0) * 100:.1f}%", className="num") for t in tickers]
-        rows.append(html.Tr([
-            html.Td(labels.get(key, key), style={"color": colors.get(key, TEXT), "fontWeight": 600}),
-            html.Td(_p(o.get("expected_return")), className="num"),
-            html.Td(_p(o.get("volatility")),      className="num"),
-            html.Td(_n(o.get("sharpe")),           className="num"),
-            *w_cells,
-        ], className=row_class))
 
-    headers = ["Strategy", "Return", "Vol", "Sharpe"] + tickers
-    return html.Div([
-        html.Div([html.Span("Optimisation", className="chart-title")], className="chart-header"),
-        html.Div(html.Table([
-            html.Thead(html.Tr([html.Th(h) for h in headers])),
-            html.Tbody(rows),
-        ], className="opt-table"), style={"overflowX": "auto"}),
-    ], className="chart-panel")
+@callback(
+    Output("opt-display", "children"),
+    Input("opt-strategy", "value"),
+    State("opt-result-store", "data"),
+    prevent_initial_call=True,
+)
+def update_opt_display(strategy, result):
+    if not result or not strategy:
+        return no_update
+    return _render_opt_content(strategy, result)
+
+
+@callback(
+    Output("pf-store", "data", allow_duplicate=True),
+    Output("pf-analyse-status", "children", allow_duplicate=True),
+    Input("opt-apply-btn", "n_clicks"),
+    State("opt-strategy", "value"),
+    State("opt-result-store", "data"),
+    State("pf-store", "data"),
+    prevent_initial_call=True,
+)
+def apply_opt_weights(n, strategy, result, pf_data):
+    if not n or not result or not strategy:
+        return no_update, no_update
+    weights = result["optimization"].get(strategy, {}).get("weights", {})
+    if not weights:
+        return no_update, html.Span("No optimised weights available.", style={"color": DANGER})
+    new_pf = dict(pf_data or {})
+    new_pf["weights"] = weights
+    label = {"max_sharpe": "Max Sharpe", "min_variance": "Min Variance",
+             "black_litterman": "Black-Litterman"}.get(strategy, strategy)
+    return new_pf, html.Span(f"✓ {label} weights applied — click Analyse Portfolio to refresh.",
+                              style={"color": SUCCESS})
 
 
 # ── Asset Analysis tab ─────────────────────────────────────────────────────────
@@ -841,12 +1006,16 @@ def render_portfolio_tab(tab, result):
     else:
         m = result["meta"]
         meta = f"Period: {m['period']}  ·  Benchmark: {m['benchmark']}  ·  {m['n_assets']} assets"
-        if tab == "tab-dashboard":
-            content = build_dashboard(result)
-        elif tab == "tab-asset":
-            content = build_asset_analysis(result)
-        else:
-            content = build_monte_carlo(result)
+        try:
+            if tab == "tab-dashboard":
+                content = build_dashboard(result)
+            elif tab == "tab-asset":
+                content = build_asset_analysis(result)
+            else:
+                content = build_monte_carlo(result)
+        except Exception as exc:
+            content = html.Div(f"Render error: {exc}",
+                               style={"color": DANGER, "padding": "16px", "fontSize": "13px"})
     return content, meta
 
 

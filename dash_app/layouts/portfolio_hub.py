@@ -263,6 +263,7 @@ def _rollvol_fig(result: dict) -> go.Figure:
 
 
 def _corr_fig(result: dict) -> go.Figure:
+    import numpy as np
     tickers = result["tickers"]
     rets    = result["returns"]
     if not tickers or not rets:
@@ -271,9 +272,13 @@ def _corr_fig(result: dict) -> go.Figure:
     if df.empty:
         return go.Figure()
     corr = df.corr().values
-    text = [[f"{v:.2f}" for v in row] for row in corr]
+    # Mask upper triangle + diagonal — keep only strict lower triangle
+    mask = np.triu(np.ones_like(corr, dtype=bool), k=0)
+    corr_masked = np.where(mask, np.nan, corr)
+    text = [[f"{corr[i][j]:.2f}" if not mask[i][j] else "" for j in range(len(tickers))]
+            for i in range(len(tickers))]
     fig = go.Figure(go.Heatmap(
-        z=corr, x=tickers, y=tickers,
+        z=corr_masked, x=tickers, y=tickers,
         text=text, texttemplate="%{text}",
         colorscale=[[0, DANGER], [0.5, "#1c2128"], [1, SUCCESS]],
         zmin=-1, zmax=1, showscale=True,

@@ -710,7 +710,7 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
         ], className="chart-row"),
     ])
 
-    return html.Div([kpi, perf, cumret, chart_row, metrics, corr_row, frontier])
+    return html.Div([kpi, frontier, perf, cumret, chart_row, metrics, corr_row])
 
 
 # ── Allocation + Optimisation callbacks ───────────────────────────────────────

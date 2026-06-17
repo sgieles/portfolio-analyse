@@ -2,9 +2,9 @@
 
 ## Current status
 
-- **Phase:** 23 — Dash UI Migration ✅ Complete
-- **Next step:** Phase 24 — Commodities Research Module
-- **Last updated:** 2026-06-16
+- **Phase:** 24 — Commodities Research Module ✅ Complete
+- **Next step:** Phase 25 — TBD
+- **Last updated:** 2026-06-17
 
 ---
 
@@ -27,7 +27,7 @@
 | 21 | Research Report & Investment Thesis (rule-based, technical scorer) | ✅ Done |
 | 22 | ETF Research Module (profile, scorer, analysis page, auto-routing) | ✅ Done |
 | 23 | Dash UI Migration (full app rebuild: dark theme, sidebar, Portfolio Hub, Research Hub) | ✅ Done |
-| 24 | Commodities Research Module | ⬜ Next |
+| 24 | Commodities Research Module | ✅ Done |
 
 ---
 
@@ -51,19 +51,16 @@ Complete rebuild of the UI layer from Streamlit to Dash:
 
 ---
 
-## Phase 24 — Commodities Research Module
+## Phase 24 — Commodities Research Module ✅
 
-*Goal: extend the research workflow to commodities after stock and ETF research are complete.*
-
-- [ ] Commodity universe (gold, oil, gas, copper, silver, wheat, etc. — yfinance tickers like GC=F, CL=F)
-- [ ] Commodity profile fetcher (`research/data/commodity_fetcher.py`)
-- [ ] Commodity scorer (`research/analytics/commodity_scorer.py`) — momentum, inflation sensitivity, supply/demand signals
-- [ ] Commodity analysis page (`dash_app/layouts/commodity_analysis.py`)
-- [ ] Auto-routing in Research Hub (detect commodity ticker, route to commodity page)
-- [ ] Relative strength vs broad market (1/3/6/12m momentum)
-- [ ] Inflation & interest rate sensitivity metrics
-
-**Done when:** commodity tickers are auto-detected in the Research Hub and route to a dedicated commodity analysis page with scoring, momentum and macro-sensitivity signals.
+- [x] Commodity universe: 15 tickers across Precious Metals, Energy, Base Metals, Agriculture (`research/data/commodity_fetcher.py`)
+- [x] `is_commodity(ticker)` — detects `=F` suffix; auto-routes before yfinance info call
+- [x] `CommodityProfile` dataclass + `fetch_commodity_history()` (5Y OHLCV)
+- [x] `commodity_scorer.py` — momentum (1M/3M/6M/1Y), trend (MA50/MA200/golden cross), volatility, seasonality
+- [x] Composite score 0–100: Momentum 40% + Trend 35% + Volatility 25%
+- [x] `dash_app/layouts/commodity_analysis.py` — price+MA chart, drawdown, seasonality bar, score cards, signals
+- [x] Auto-routing in `research_hub._render_company` — `GC=F` → commodity page
+- [x] Fixed `_render_etf` broken import (was importing from deleted `streamlit_app/`) — now uses `etf_fetcher` + `etf_scorer`
 
 ---
 
@@ -102,3 +99,4 @@ Complete rebuild of the UI layer from Streamlit to Dash:
 - 2026-06-16 · Bugfixes · Beta ValueError (duplicate column names when asset==benchmark); timezone ValueError (tz-aware DatetimeIndex); metric card info icon moved inside card via st.container(border=True).
 - 2026-06-16 · Phase 23 · Full Dash migration: dark Bloomberg UI, sidebar, Portfolio Hub (dashboard/asset analysis/Monte Carlo), Research Hub (screener/watchlists/company/sector). Entry: python dash_app/app.py.
 - 2026-06-16 · Infra · Render.com deployment live (https://portfolio-analyse.onrender.com); iPhone PWA support (meta tags, manifest, touch icon); CLAUDE.md cleanup.
+- 2026-06-17 · Phase 24 · Commodities: fetcher (15 tickers), scorer (momentum/trend/volatility/seasonality), commodity_analysis.py page, auto-routing in Research Hub; fixed _render_etf broken streamlit import.

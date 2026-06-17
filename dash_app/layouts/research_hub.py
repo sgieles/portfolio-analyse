@@ -201,7 +201,13 @@ def _render_company(ticker: str) -> html.Div:
     from research.analytics.fundamental_scorer import score_fundamentals
     from research.cache.screener_cache import load_screener_rows
     from research.data.etf_fetcher import is_etf
+    from research.data.commodity_fetcher import is_commodity
     import yfinance as yf
+
+    # Commodity detection (=F suffix) — no yfinance info needed
+    if is_commodity(ticker):
+        from dash_app.layouts.commodity_analysis import render_commodity
+        return render_commodity(ticker)
 
     info = yf.Ticker(ticker).info or {}
 
@@ -300,25 +306,111 @@ def _render_company(ticker: str) -> html.Div:
 
 
 def _render_etf(ticker: str, info: dict, profile) -> html.Div:
-    from streamlit_app.pages.etf_analysis import render_detail as etf_render
-    # ETF routing — fallback to simple display if Streamlit page isn't convertible
-    fund_family = info.get("fundFamily", "—")
+    from research.data.etf_fetcher import fetch_etf_profile, fetch_etf_price_history
+    from research.analytics.etf_scorer import score_etf
+
+    etf_profile   = fetch_etf_profile(ticker)
+    price_hist    = fetch_etf_price_history(ticker, "5y")
+    bench_hist    = fetch_etf_price_history("SPY",  "5y")
+    analysis      = score_etf(ticker, etf_profile, price_hist, bench_hist)
+
+    fund_family = etf_profile.fund_family or info.get("fundFamily", "—")
+    er_str = f"TER {etf_profile.expense_ratio*100:.2f}%" if math.isfinite(etf_profile.expense_ratio) else ""
+
+    def _sig_color(s: str) -> str:
+        return {
+            "Excellent": SUCCESS, "Good": BLUE, "Neutral": MUTED,
+            "Weak": WARNING, "Poor": DANGER,
+        }.get(s, TEXT)
+
+    score_row = html.Div([
+        _score_card("ETF Score",    analysis.etf_score,            analysis.signal),
+        _score_card("Cost",         analysis.cost_score,           er_str),
+        _score_card("Diversif.",    analysis.diversification_score, f"{etf_profile.n_holdings} holdings"),
+        _score_card("Performance",  analysis.performance_score,    f"1Y {_p(analysis.return_1y)}"),
+        _score_card("Risk",         analysis.risk_score,           f"DD {_p(analysis.max_drawdown)}"),
+    ], style={"display": "grid", "gridTemplateColumns": "repeat(5,1fr)",
+              "gap": "10px", "marginBottom": "14px"})
+
+    # Return strip
+    ret_row = html.Div([
+        html.Div([
+            html.Div(lbl, className="kpi-label"),
+            html.Div(_p(val), className="kpi-value",
+                     style={"color": SUCCESS if val and val > 0 else DANGER}),
+        ], className="kpi-card")
+        for lbl, val in [
+            ("1Y Return", analysis.return_1y),
+            ("3Y Ann.",   analysis.return_3y_ann),
+            ("5Y Ann.",   analysis.return_5y_ann),
+            ("Volatility", analysis.volatility_1y),
+            ("Sharpe",    analysis.sharpe_1y),
+            ("Max DD",    analysis.max_drawdown),
+        ]
+    ], style={"display": "grid", "gridTemplateColumns": "repeat(6,1fr)",
+              "gap": "10px", "marginBottom": "14px"})
+
+    # Signals
+    def _bullets(items: list[str]) -> html.Ul | html.Div:
+        if not items:
+            return html.Div("—", style={"color": MUTED})
+        return html.Ul([
+            html.Li(i, style={"color": TEXT, "fontSize": "13px", "marginBottom": "5px"})
+            for i in items
+        ], style={"paddingLeft": "18px", "margin": "0"})
+
+    sw_panel = html.Div([
+        html.Div([html.Span("Signals", className="chart-title")], className="chart-header"),
+        html.Div([
+            html.Div([
+                html.Div("Strengths", style={"color": SUCCESS, "fontWeight": "600",
+                                             "fontSize": "12px", "marginBottom": "6px"}),
+                _bullets(analysis.strengths),
+            ], style={"flex": "1"}),
+            html.Div([
+                html.Div("Weaknesses", style={"color": DANGER, "fontWeight": "600",
+                                              "fontSize": "12px", "marginBottom": "6px"}),
+                _bullets(analysis.weaknesses),
+            ], style={"flex": "1"}),
+        ], style={"display": "flex", "gap": "24px", "padding": "12px"}),
+    ], className="chart-panel")
+
+    # Top holdings table
+    holdings_rows = []
+    for h in etf_profile.top_holdings[:10]:
+        wt = h.get("weight", float("nan"))
+        wt_str = f"{wt*100:.1f}%" if math.isfinite(float(wt)) else "—"
+        holdings_rows.append(html.Tr([
+            html.Td(h.get("symbol", "—"), className="ticker-cell"),
+            html.Td(h.get("name", "—")),
+            html.Td(wt_str, className="num"),
+        ]))
+
+    holdings_panel = html.Div([
+        html.Div([html.Span("Top Holdings", className="chart-title")], className="chart-header"),
+        html.Table([
+            html.Thead(html.Tr([html.Th("Symbol"), html.Th("Name"), html.Th("Weight")])),
+            html.Tbody(holdings_rows),
+        ], className="data-table"),
+    ], className="chart-panel") if holdings_rows else html.Div()
+
     return html.Div([
         html.Div([
             html.Div([
-                html.Span(info.get("longName") or ticker, className="company-name"),
+                html.Span(etf_profile.name or ticker, className="company-name"),
                 html.Span(ticker, className="company-ticker"),
+                html.Span(analysis.signal, style={
+                    "color": _sig_color(analysis.signal), "fontSize": "13px",
+                    "fontWeight": "600", "marginLeft": "10px",
+                }),
             ]),
-            html.Div(f"{fund_family} · ETF / Fund", className="company-meta"),
+            html.Div(f"{fund_family} · ETF · {etf_profile.category or '—'} · "
+                     f"AUM {_bn(etf_profile.aum)}", className="company-meta"),
         ], className="company-header"),
-        html.Div([
-            _score_card("AUM",        info.get("totalAssets"), fmt="aum"),
-            _score_card("Expense",    info.get("annualReportExpenseRatio"), fmt="pct"),
-            _score_card("Holdings",   info.get("holdings") and len(info["holdings"]) or None),
-            _score_card("YTD",        info.get("ytdReturn"), fmt="pct"),
-        ], style={"display": "grid", "gridTemplateColumns": "repeat(4,1fr)", "gap": "10px", "marginBottom": "14px"}),
-        html.Div(f"ETF analysis: open Research Hub → Company Look-up → {ticker}",
-                 style={"color": MUTED, "fontSize": "13px"}),
+        score_row,
+        ret_row,
+        holdings_panel,
+        sw_panel,
     ])
 
 

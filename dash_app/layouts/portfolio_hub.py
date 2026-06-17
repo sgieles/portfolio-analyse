@@ -222,7 +222,7 @@ def _perf_fig(result: dict, period: str = "All") -> go.Figure:
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=p_dates, y=p_vals, name="Portfolio",
                              line=dict(color=ACCENT, width=2.5),
-                             fill="tozeroy", fillcolor="rgba(247,129,102,0.06)"))
+                             fill="tozeroy", fillcolor="rgba(102,165,247,0.06)"))
     fig.add_trace(go.Scatter(x=b_dates, y=b_vals, name=bench,
                              line=dict(color=BLUE, width=1.8, dash="dot")))
     fig.update_layout(**PLOTLY, height=280,
@@ -816,7 +816,7 @@ def build_monte_carlo(result: dict) -> html.Div:
     for i in range(min(80, n_sims)):
         fig.add_trace(go.Scatter(
             y=paths[:, i], mode="lines",
-            line=dict(width=0.4, color=f"rgba(247,129,102,0.15)"),
+            line=dict(width=0.4, color=f"rgba(102,165,247,0.15)"),
             showlegend=False, hoverinfo="skip",
         ))
     fig.add_trace(go.Scatter(y=np.percentile(paths, 5,  axis=1), name="5th pct",

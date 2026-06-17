@@ -3,7 +3,7 @@
 BG     = "#0d1117"
 CARD   = "#161b22"
 BORDER = "#30363d"
-ACCENT = "#f78166"
+ACCENT = "#66a5f7"
 BLUE   = "#58a6ff"
 SUCCESS= "#3fb950"
 DANGER = "#f85149"

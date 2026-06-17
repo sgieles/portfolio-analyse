@@ -91,7 +91,7 @@ def _price_chart(history, name: str) -> go.Figure:
     fig.add_trace(go.Scatter(
         x=dates, y=close.values,
         name=name, line=dict(color=ACCENT, width=2),
-        fill="tozeroy", fillcolor="rgba(247,129,102,0.08)",
+        fill="tozeroy", fillcolor="rgba(102,165,247,0.08)",
     ))
 
     # MA50 / MA200

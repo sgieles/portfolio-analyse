@@ -56,6 +56,7 @@ server = app.server  # for gunicorn / Streamlit Cloud
 # Import layouts AFTER app is created so @callback decorators register correctly
 from dash_app.layouts.portfolio_hub import portfolio_hub_layout  # noqa: E402
 from dash_app.layouts.research_hub import research_hub_layout    # noqa: E402
+from dash_app.layouts.info_hub import info_hub_layout            # noqa: E402
 
 # ── Default state ──────────────────────────────────────────────────────────────
 _DEFAULT_PF: dict = {
@@ -81,6 +82,8 @@ def _header() -> html.Div:
                         n_clicks=0),
             html.Button("Research Hub",  id="nav-research",  className="hub-tab",
                         n_clicks=0),
+            html.Button("Info",          id="nav-info",      className="hub-tab",
+                        n_clicks=0),
         ], className="hub-nav"),
 
         html.Div([
@@ -105,12 +108,15 @@ app.layout = html.Div([
     Output("page-content",   "children"),
     Output("nav-portfolio",  "className"),
     Output("nav-research",   "className"),
+    Output("nav-info",       "className"),
     Input("url", "pathname"),
 )
 def route(pathname: str | None):
     if pathname and pathname.startswith("/research"):
-        return research_hub_layout(), "hub-tab", "hub-tab active"
-    return portfolio_hub_layout(), "hub-tab active", "hub-tab"
+        return research_hub_layout(), "hub-tab", "hub-tab active", "hub-tab"
+    if pathname and pathname.startswith("/info"):
+        return info_hub_layout(), "hub-tab", "hub-tab", "hub-tab active"
+    return portfolio_hub_layout(), "hub-tab active", "hub-tab", "hub-tab"
 
 
 @callback(
@@ -129,6 +135,15 @@ def go_portfolio(n):
 )
 def go_research(n):
     return "/research"
+
+
+@callback(
+    Output("url", "pathname", allow_duplicate=True),
+    Input("nav-info", "n_clicks"),
+    prevent_initial_call=True,
+)
+def go_info(n):
+    return "/info"
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────

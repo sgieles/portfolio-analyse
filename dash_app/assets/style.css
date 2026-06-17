@@ -308,6 +308,15 @@ select.setting-select:focus { border-color: #58a6ff; }
 /* dcc.RadioItems generated structure */
 .period-strip .dash-radio-items { display: flex; gap: 3px; flex-wrap: nowrap; }
 
+/* ── Toggle switch (2-option segmented control) ───────────────────────────── */
+.toggle-switch { display: inline-flex; background: #0d1117; border: 1px solid #30363d; border-radius: 20px; padding: 3px; }
+.toggle-switch .form-check { padding: 0; margin: 0; }
+.toggle-switch .dash-radio-items { display: flex; flex-wrap: nowrap; }
+.toggle-switch input[type="radio"] { display: none; }
+.toggle-switch label { display: inline-block; padding: 4px 16px; border-radius: 16px; font-size: 12px; font-weight: 500; color: #8b949e; cursor: pointer; transition: all 0.18s; font-family: inherit; white-space: nowrap; }
+.toggle-switch label:hover { color: #c9d1d9; }
+.toggle-switch input[type="radio"]:checked + label { background: #f78166; color: #0d1117; font-weight: 700; }
+
 /* ── Metric cards ─────────────────────────────────────────────────────────── */
 .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
 

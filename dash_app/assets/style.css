@@ -315,7 +315,7 @@ select.setting-select:focus { border-color: #58a6ff; }
 .toggle-switch input[type="radio"] { display: none; }
 .toggle-switch label { display: inline-block; padding: 4px 16px; border-radius: 16px; font-size: 12px; font-weight: 500; color: #8b949e; cursor: pointer; transition: all 0.18s; font-family: inherit; white-space: nowrap; }
 .toggle-switch label:hover { color: #c9d1d9; }
-.toggle-switch input[type="radio"]:checked + label { background: #f78166; color: #0d1117; font-weight: 700; }
+.toggle-switch input[type="radio"]:checked + label { background: #c9d1d9; color: #0d1117; font-weight: 700; }
 
 /* ── Metric cards ─────────────────────────────────────────────────────────── */
 .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }

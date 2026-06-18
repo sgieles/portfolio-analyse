@@ -2,8 +2,8 @@
 
 ## Current status
 
-- **Phase:** 28 — Research Hub Bugfix Sprint ✅ Complete
-- **Next step:** Phase 29 — Research Hub Screener Overhaul
+- **Phase:** 29 — Research Hub Screener Overhaul ✅ Complete
+- **Next step:** Phase 30 — TBD
 - **Last updated:** 2026-06-18
 
 ---
@@ -32,7 +32,7 @@
 | 26 | Scenario Analysis + Risk/Return Contribution + Allocation Donut | ✅ Done |
 | 27 | PDF Export + UI Polish | ✅ Done |
 | 28 | Research Hub — Bugfix Sprint | ✅ Done |
-| 29 | Research Hub — Screener Overhaul (full market scan + heatmap) | 🔜 Planned |
+| 29 | Research Hub — Screener Overhaul (full market scan + heatmap) | ✅ Done |
 
 ---
 
@@ -167,3 +167,4 @@ Complete rebuild of the UI layer from Streamlit to Dash:
 - 2026-06-18 · Phase 26 · Scenario Analysis + Contribution Charts + Donut: run_scenario_analysis wired into analysis_runner; scenario grouped bar chart (market vs portfolio per stress scenario); risk contribution + return contribution horizontal bar charts per asset; portfolio weight donut chart.
 - 2026-06-18 · Phase 28 · Research Hub Bugfix Sprint: removed redundant left sidebar; replaced company look-up plain input with autocomplete Dropdown (ticker_options); fixed _render_valuation_tab (run_valuation → score_valuation + dcf_fair_value + compute_historical_multiples); fixed _render_insider_tab (fetch_insider_trades → fetch_insider_transactions, score_insider_activity(ticker, df)); fixed _render_report_tab (generate_thesis now called with all 7 required positional args); fixed sector Intel duplicate legend kwarg (PLOTLY already contains legend); risk_bullets attribute fix.
 - 2026-06-18 · Phase 27 · PDF Export + UI Polish: pdf_exporter.py (reportlab Platypus, cover/metrics/weights/per-asset/optimization/scenario/notes sections, dark-header tables, page footer); PDF button added to export strip; tooltip max-width + edge-card clip fix; KPI grid minmax(0,1fr); contribution chart min-height raised to 240px; export button width: auto fix.
+- 2026-06-18 · Phase 29 · Screener Overhaul: screener_runner.py (batch yf.download + parallel ThreadPoolExecutor info fetch, daily cache, momentum helper); build_screener_tab updated with filter bar (min-score slider, sector dropdown, sort dropdown) + dcc.Store; run_screener_callback now writes to Store; render_screener_view callback with per-column normalised heatmap table (_HEATMAP_COLS, _heatmap_bg, _norm_col, _build_heatmap_table), overview KPI strip (shown/avg/top sector/top3/bottom3); CSS for dark slider + heatmap ticker cells.

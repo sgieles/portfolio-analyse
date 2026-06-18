@@ -74,24 +74,74 @@ def research_hub_layout() -> html.Div:
 
 def build_screener_tab() -> html.Div:
     from research.data.universe import UNIVERSES
-    universes = list(UNIVERSES.keys()) if hasattr(UNIVERSES, "keys") else ["S&P 500", "Nasdaq 100", "STOXX 600", "AEX"]
+    universes = list(UNIVERSES.keys()) if UNIVERSES else ["AEX", "Nasdaq 100", "S&P 500", "STOXX 600"]
     return html.Div([
+        # ── Run controls ──────────────────────────────────────────────────────
         html.Div([
             dcc.Dropdown(
                 id="rh-universe-select",
                 options=[{"label": u, "value": u} for u in universes],
-                value=universes[0] if universes else "S&P 500",
+                value=universes[0] if universes else "AEX",
                 clearable=False, className="dash-dropdown",
                 style={"width": "200px"},
             ),
             html.Button("▶ Run Screener", id="rh-screen-btn", className="sb-btn primary",
                         n_clicks=0, style={"width": "auto", "padding": "8px 18px"}),
-            html.Span(id="rh-screener-status", style={"fontSize": "11px", "color": MUTED, "marginLeft": "10px"}),
+            html.Span(id="rh-screener-status",
+                      style={"fontSize": "11px", "color": MUTED, "marginLeft": "10px"}),
         ], className="screener-controls"),
-        dcc.Loading(
-            html.Div(id="rh-screener-results"),
-            type="circle", color=ACCENT,
-        ),
+
+        # ── Filter bar (shown after data loads) ───────────────────────────────
+        html.Div([
+            html.Div([
+                html.Div("Min Score", style={"fontSize": "10px", "color": MUTED,
+                                             "fontWeight": "700", "marginBottom": "4px",
+                                             "textTransform": "uppercase"}),
+                dcc.Slider(id="rh-screener-min-score", min=0, max=80, step=5, value=0,
+                           marks={0: "0", 20: "20", 40: "40", 60: "60", 80: "80"},
+                           tooltip={"placement": "bottom", "always_visible": False}),
+            ], style={"flex": "1", "minWidth": "200px", "maxWidth": "300px"}),
+            html.Div([
+                html.Div("Sector", style={"fontSize": "10px", "color": MUTED,
+                                          "fontWeight": "700", "marginBottom": "4px",
+                                          "textTransform": "uppercase"}),
+                dcc.Dropdown(id="rh-screener-sector-filter",
+                             options=[{"label": "All sectors", "value": ""}],
+                             value="", clearable=False, className="dash-dropdown",
+                             style={"minWidth": "180px"}),
+            ], style={"flex": "0 0 auto"}),
+            html.Div([
+                html.Div("Sort by", style={"fontSize": "10px", "color": MUTED,
+                                           "fontWeight": "700", "marginBottom": "4px",
+                                           "textTransform": "uppercase"}),
+                dcc.Dropdown(
+                    id="rh-screener-sort",
+                    options=[
+                        {"label": "Score ↓",        "value": "overall_score:desc"},
+                        {"label": "Fundamental ↓",  "value": "fundamental_score:desc"},
+                        {"label": "Valuation ↓",    "value": "valuation_score:desc"},
+                        {"label": "Trend ↓",        "value": "trend_score:desc"},
+                        {"label": "P/E ↑",          "value": "trailing_pe:asc"},
+                        {"label": "P/B ↑",          "value": "price_to_book:asc"},
+                        {"label": "Rev. Growth ↓",  "value": "revenue_growth:desc"},
+                        {"label": "Momentum 6M ↓",  "value": "mom_6m:desc"},
+                    ],
+                    value="overall_score:desc",
+                    clearable=False, className="dash-dropdown",
+                    style={"minWidth": "200px"},
+                ),
+            ], style={"flex": "0 0 auto"}),
+        ], id="rh-screener-filter-bar",
+           style={"display": "none", "gap": "20px", "alignItems": "flex-end",
+                  "flexWrap": "wrap", "marginBottom": "14px", "padding": "14px 16px",
+                  "background": CARD, "border": f"1px solid {BORDER}",
+                  "borderRadius": "10px"}),
+
+        # ── Results ───────────────────────────────────────────────────────────
+        dcc.Loading(html.Div(id="rh-screener-results"), type="circle", color=ACCENT),
+
+        # ── Row data store ────────────────────────────────────────────────────
+        dcc.Store(id="rh-screener-rows-store"),
     ])
 
 
@@ -863,99 +913,116 @@ def _render_sector(sector: str) -> html.Div:
     ])
 
 
-# ── Screener renderer ──────────────────────────────────────────────────────────
+# ── Screener heatmap helpers ───────────────────────────────────────────────────
 
-def _render_screener(universe: str) -> tuple[html.Div, str]:
-    from research.cache.screener_cache import load_screener_rows
+_HEATMAP_COLS = [
+    # (header, field, inverse, lo_cap, hi_cap, skip_zero, fmt)
+    ("Score",   "overall_score",     False, None,  None,  False, lambda v: f"{v:.0f}"),
+    ("Fund.",   "fundamental_score", False, None,  None,  False, lambda v: f"{v:.0f}"),
+    ("Val.",    "valuation_score",   False, None,  None,  False, lambda v: f"{v:.0f}"),
+    ("Trend",   "trend_score",       False, None,  None,  False, lambda v: f"{v:.0f}"),
+    ("P/E",     "trailing_pe",       True,  0.0,   150.0, False, lambda v: f"{v:.1f}"),
+    ("P/B",     "price_to_book",     True,  0.0,   30.0,  False, lambda v: f"{v:.2f}"),
+    ("Rev.G%",  "revenue_growth",    False, None,  None,  False, lambda v: f"{v*100:+.1f}%"),
+    ("OpM%",    "operating_margin",  False, None,  None,  False, lambda v: f"{v*100:.1f}%"),
+    ("Div%",    "dividend_yield",    False, None,  None,  True,  lambda v: f"{v*100:.2f}%"),
+    ("Mom 6M",  "mom_6m",            False, None,  None,  False, lambda v: f"{v*100:+.1f}%"),
+]
 
-    rows = load_screener_rows(universe)
-    if rows is None:
-        from research.analytics.screener import run_screener
-        rows = run_screener(universe)
 
-    if not rows:
-        return html.Div("No screener data.", className="pf-empty"), "No data"
+def _heatmap_bg(t: float, inverse: bool = False) -> str:
+    if math.isnan(t):
+        return ""
+    if inverse:
+        t = 1.0 - t
+    dev = abs(t - 0.5) * 2
+    r, g, b = (39, 174, 96) if t >= 0.5 else (192, 57, 43)
+    return f"rgba({r},{g},{b},{dev * 0.35:.2f})"
 
-    # Sort by composite_score desc
-    rows = sorted(rows, key=lambda r: float(r.get("composite_score") or 0), reverse=True)
 
-    # ── Market overview strip ──────────────────────────────────────────────────
-    scores = [float(r["composite_score"]) for r in rows if r.get("composite_score") is not None]
-    avg_score = sum(scores) / len(scores) if scores else 0
-    top3    = rows[:3]
-    bottom3 = rows[-3:][::-1]
+def _norm_col(values: list[float], lo_cap, hi_cap, skip_zero) -> list[float]:
+    valid = []
+    for v in values:
+        if math.isnan(v):
+            continue
+        if skip_zero and v == 0.0:
+            continue
+        if lo_cap is not None and v < lo_cap:
+            continue
+        if hi_cap is not None and v > hi_cap:
+            continue
+        valid.append(v)
+    if not valid:
+        return [float("nan")] * len(values)
+    vmin, vmax = min(valid), max(valid)
+    out = []
+    for v in values:
+        if math.isnan(v) or (skip_zero and v == 0.0):
+            out.append(float("nan"))
+        elif lo_cap is not None and v < lo_cap:
+            out.append(0.0)
+        elif hi_cap is not None and v > hi_cap:
+            out.append(1.0)
+        elif vmax == vmin:
+            out.append(0.5)
+        else:
+            out.append((v - vmin) / (vmax - vmin))
+    return out
 
-    def _mini_card(label, val, color=TEXT):
-        return html.Div([
-            html.Div(label, className="kpi-label"),
-            html.Div(str(val), className="kpi-value", style={"color": color, "fontSize": "16px"}),
-        ], className="kpi-card")
 
-    sector_counts: dict[str, int] = {}
-    for r in rows:
-        sec = r.get("sector") or "Unknown"
-        sector_counts[sec] = sector_counts.get(sec, 0) + 1
-    top_sector = max(sector_counts, key=sector_counts.get) if sector_counts else "—"
+def _build_heatmap_table(rows: list[dict]) -> html.Table:
+    """Build an HTML table with per-column heatmap background colours."""
+    # Pre-compute normalised values per column
+    col_norms: list[list[float]] = []
+    for _, field, inverse, lo_cap, hi_cap, skip_zero, _fmt in _HEATMAP_COLS:
+        raw = []
+        for r in rows:
+            v = r.get(field)
+            try:
+                raw.append(float(v) if v is not None else float("nan"))
+            except (TypeError, ValueError):
+                raw.append(float("nan"))
+        t_vals = _norm_col(raw, lo_cap, hi_cap, skip_zero)
+        col_norms.append(t_vals)
 
-    score_color = SUCCESS if avg_score >= 60 else WARNING if avg_score >= 40 else DANGER
-    overview = html.Div([
-        html.Div([
-            _mini_card("Companies",   len(rows)),
-            _mini_card("Avg Score",   f"{avg_score:.0f}", score_color),
-            _mini_card("Top Sector",  top_sector),
-            html.Div([
-                html.Div("Top 3", className="kpi-label"),
-                html.Div([
-                    html.Div(f"{r.get('ticker','—')}  {r.get('composite_score',0):.0f}",
-                             style={"fontSize": "12px", "color": SUCCESS})
-                    for r in top3
-                ]),
-            ], className="kpi-card"),
-            html.Div([
-                html.Div("Bottom 3", className="kpi-label"),
-                html.Div([
-                    html.Div(f"{r.get('ticker','—')}  {r.get('composite_score',0):.0f}",
-                             style={"fontSize": "12px", "color": DANGER})
-                    for r in bottom3
-                ]),
-            ], className="kpi-card"),
-        ], style={"display": "grid", "gridTemplateColumns": "repeat(5,1fr)",
-                  "gap": "10px", "marginBottom": "14px"}),
-    ])
+    # Build header
+    header_cells = [html.Th("Ticker"), html.Th("Name"), html.Th("Sector")]
+    for hdr, *_ in _HEATMAP_COLS:
+        header_cells.append(html.Th(hdr, className="num"))
 
+    # Build data rows
     table_rows = []
-    for r in rows[:100]:
-        score = r.get("composite_score")
-        fund  = r.get("fundamental_score")
-        val   = r.get("valuation_score")
-        tech  = r.get("technical_score")
-        table_rows.append(html.Tr([
-            html.Td(r.get("ticker", ""),   className="ticker-cell"),
-            html.Td(r.get("name", "")[:28]),
-            html.Td(r.get("sector", "—")),
-            html.Td(_score_badge(score),   className="num"),
-            html.Td(_score_badge(fund),    className="num"),
-            html.Td(_score_badge(val),     className="num"),
-            html.Td(_score_badge(tech),    className="num"),
-            html.Td(_p(r.get("pe_ratio")) if r.get("pe_ratio") else "—", className="num"),
-            html.Td(_p(r.get("revenue_growth")), className="num",
-                    style={"color": SUCCESS if (r.get("revenue_growth") or 0) > 0 else DANGER}),
-        ]))
+    for i, r in enumerate(rows):
+        cells = [
+            html.Td(r.get("ticker", ""), className="ticker-cell"),
+            html.Td((r.get("name") or "")[:26], style={"fontSize": "11px"}),
+            html.Td(r.get("sector") or "—",    style={"fontSize": "11px", "color": MUTED}),
+        ]
+        for j, (hdr, field, inverse, lo_cap, hi_cap, skip_zero, fmt) in enumerate(_HEATMAP_COLS):
+            v = r.get(field)
+            try:
+                fv = float(v) if v is not None else float("nan")
+            except (TypeError, ValueError):
+                fv = float("nan")
+            t = col_norms[j][i]
+            bg = _heatmap_bg(t, inverse) if not math.isnan(t) else ""
+            if math.isnan(fv) or (skip_zero and fv == 0.0):
+                text = "—"
+            else:
+                try:
+                    text = fmt(fv)
+                except Exception:
+                    text = "—"
+            cell_style: dict = {"textAlign": "right"}
+            if bg:
+                cell_style["background"] = bg
+            cells.append(html.Td(text, className="num", style=cell_style))
+        table_rows.append(html.Tr(cells))
 
-    table = html.Table([
-        html.Thead(html.Tr([
-            html.Th("Ticker"), html.Th("Name"), html.Th("Sector"),
-            html.Th("Score"), html.Th("Fund."), html.Th("Val."), html.Th("Tech."),
-            html.Th("P/E"), html.Th("Rev. Growth"),
-        ])),
-        html.Tbody(table_rows),
-    ], className="data-table")
-
-    status = f"{len(rows)} companies · {universe}"
-    return html.Div([
-        overview,
-        html.Div(style={"overflowX": "auto"}, children=[table]),
-    ], className="chart-panel"), status
+    return html.Table(
+        [html.Thead(html.Tr(header_cells)), html.Tbody(table_rows)],
+        className="data-table",
+    )
 
 
 # ── Watchlist content ──────────────────────────────────────────────────────────
@@ -999,7 +1066,7 @@ def render_research_tab(tab):
 
 
 @callback(
-    Output("rh-screener-results", "children"),
+    Output("rh-screener-rows-store", "data"),
     Output("rh-screener-status", "children"),
     Input("rh-screen-btn", "n_clicks"),
     State("rh-universe-select", "value"),
@@ -1008,8 +1075,112 @@ def render_research_tab(tab):
 def run_screener_callback(n, universe):
     if not n or not universe:
         return no_update, no_update
-    content, status = _render_screener(universe)
-    return content, status
+    try:
+        from research.analytics.screener_runner import run_screener
+        rows = run_screener(universe)
+        return rows, f"{len(rows)} companies · {universe}"
+    except Exception as exc:
+        return [], f"Error: {exc}"
+
+
+@callback(
+    Output("rh-screener-results", "children"),
+    Output("rh-screener-filter-bar", "style"),
+    Output("rh-screener-sector-filter", "options"),
+    Input("rh-screener-rows-store", "data"),
+    Input("rh-screener-min-score", "value"),
+    Input("rh-screener-sector-filter", "value"),
+    Input("rh-screener-sort", "value"),
+)
+def render_screener_view(rows, min_score, sector_filter, sort_key):
+    _BAR_HIDDEN = {"display": "none"}
+    _BAR_SHOWN  = {"display": "flex", "gap": "20px", "alignItems": "flex-end",
+                   "flexWrap": "wrap", "marginBottom": "14px", "padding": "14px 16px",
+                   "background": CARD, "border": f"1px solid {BORDER}",
+                   "borderRadius": "10px"}
+
+    if not rows:
+        return html.Div("Click ▶ Run Screener to load data.", className="pf-empty"), \
+               _BAR_HIDDEN, [{"label": "All sectors", "value": ""}]
+
+    # ── Build sector options from data ────────────────────────────────────────
+    sectors = sorted({r.get("sector") or "" for r in rows if r.get("sector")})
+    sector_opts = [{"label": "All sectors", "value": ""}] + \
+                  [{"label": s, "value": s} for s in sectors]
+
+    # ── Filter ────────────────────────────────────────────────────────────────
+    min_score = float(min_score or 0)
+    filtered = [
+        r for r in rows
+        if (float(r.get("overall_score") or 0) >= min_score)
+        and (not sector_filter or r.get("sector") == sector_filter)
+    ]
+    if not filtered:
+        return html.Div("No companies match the current filters.", className="pf-empty"), \
+               _BAR_SHOWN, sector_opts
+
+    # ── Sort ──────────────────────────────────────────────────────────────────
+    sort_field, sort_dir = (sort_key or "overall_score:desc").rsplit(":", 1)
+    reverse = sort_dir == "desc"
+    filtered = sorted(
+        filtered,
+        key=lambda r: float(r.get(sort_field) or 0) if not math.isnan(float(r.get(sort_field) or 0))
+                      else (-1e9 if reverse else 1e9),
+        reverse=reverse,
+    )
+
+    # ── Overview strip ────────────────────────────────────────────────────────
+    scores = [float(r.get("overall_score") or 0) for r in filtered]
+    avg_score = sum(scores) / len(scores) if scores else 0
+    score_color = SUCCESS if avg_score >= 60 else WARNING if avg_score >= 40 else DANGER
+
+    sector_counts: dict[str, int] = {}
+    for r in filtered:
+        sec = r.get("sector") or "Unknown"
+        sector_counts[sec] = sector_counts.get(sec, 0) + 1
+    top_sector = max(sector_counts, key=lambda k: sector_counts[k]) if sector_counts else "—"
+
+    top3    = sorted(filtered, key=lambda r: float(r.get("overall_score") or 0), reverse=True)[:3]
+    bottom3 = sorted(filtered, key=lambda r: float(r.get("overall_score") or 0))[:3]
+
+    def _mini_card(label, val, color=TEXT):
+        return html.Div([
+            html.Div(label, className="kpi-label"),
+            html.Div(str(val), className="kpi-value", style={"color": color, "fontSize": "16px"}),
+        ], className="kpi-card")
+
+    overview = html.Div([
+        _mini_card("Shown",      len(filtered)),
+        _mini_card("Avg Score",  f"{avg_score:.0f}", score_color),
+        _mini_card("Top Sector", top_sector),
+        html.Div([
+            html.Div("Top 3", className="kpi-label"),
+            html.Div([
+                html.Div(f"{r.get('ticker','—')} · {float(r.get('overall_score',0)):.0f}",
+                         style={"fontSize": "12px", "color": SUCCESS})
+                for r in top3
+            ]),
+        ], className="kpi-card"),
+        html.Div([
+            html.Div("Bottom 3", className="kpi-label"),
+            html.Div([
+                html.Div(f"{r.get('ticker','—')} · {float(r.get('overall_score',0)):.0f}",
+                         style={"fontSize": "12px", "color": DANGER})
+                for r in bottom3
+            ]),
+        ], className="kpi-card"),
+    ], style={"display": "grid", "gridTemplateColumns": "repeat(5,1fr)",
+              "gap": "10px", "marginBottom": "14px"})
+
+    # ── Heatmap table ─────────────────────────────────────────────────────────
+    table = _build_heatmap_table(filtered[:200])
+
+    content = html.Div([
+        overview,
+        html.Div(style={"overflowX": "auto"}, children=[table]),
+    ], className="chart-panel")
+
+    return content, _BAR_SHOWN, sector_opts
 
 
 @callback(

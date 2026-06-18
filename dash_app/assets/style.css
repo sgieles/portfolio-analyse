@@ -450,5 +450,15 @@ select.setting-select:focus { border-color: #58a6ff; }
 .screener-controls > * { flex-shrink: 0; }
 .screener-controls .dash-dropdown { width: 200px; }
 
+/* Screener slider (dark theme override) */
+#rh-screener-min-score .rc-slider-track { background: #66a5f7; }
+#rh-screener-min-score .rc-slider-handle { border-color: #66a5f7; background: #66a5f7; }
+#rh-screener-min-score .rc-slider-mark-text { color: #7a8195; font-size: 10px; }
+#rh-screener-min-score .rc-slider-rail  { background: #2a3142; }
+
+/* Screener heatmap table */
+#rh-screener-results .data-table td { transition: background 0.15s; }
+#rh-screener-results .data-table .ticker-cell { font-weight: 700; color: #66a5f7; }
+
 /* ── dcc.Loading color ────────────────────────────────────────────────────── */
 .dash-spinner { color: #66a5f7 !important; }

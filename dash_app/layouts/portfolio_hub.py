@@ -817,14 +817,7 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
         dcc.Graph(figure=_scenario_fig(result), config={"displayModeBar": False}),
     ], className="chart-panel")
 
-    # Weight donut + scenario side by side
-    donut_panel = html.Div([
-        html.Div([html.Span("Portfolio Weights", className="chart-title")],
-                 className="chart-header"),
-        dcc.Graph(figure=_weight_donut_fig(result), config={"displayModeBar": False}),
-    ], className="chart-panel")
-
-    scenario_row = html.Div([donut_panel, scenario_panel], className="chart-row")
+    scenario_row = html.Div([scenario_panel], className="chart-panel")
 
     # Risk + Return contribution charts
     contrib_row = html.Div([

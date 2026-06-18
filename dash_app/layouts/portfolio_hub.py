@@ -346,6 +346,84 @@ def _frontier_fig(result: dict) -> go.Figure:
     return fig
 
 
+# ── Scenario / contribution / donut charts ────────────────────────────────────
+
+def _scenario_fig(result: dict) -> go.Figure:
+    scenarios = result.get("scenarios", [])
+    if not scenarios:
+        return go.Figure()
+    names  = [s["name"] for s in scenarios]
+    mkt    = [s["market_return"] * 100 for s in scenarios]
+    port   = [s["portfolio_return"] * 100 for s in scenarios]
+    mkt_colors  = [SUCCESS if v >= 0 else DANGER for v in mkt]
+    port_colors = [SUCCESS if v >= 0 else DANGER for v in port]
+    fig = go.Figure()
+    fig.add_trace(go.Bar(name="Market",    x=names, y=mkt,  marker_color=mkt_colors,
+                         opacity=0.45, text=[f"{v:+.1f}%" for v in mkt],
+                         textposition="outside", textfont=dict(size=10, color=MUTED)))
+    fig.add_trace(go.Bar(name="Portfolio", x=names, y=port, marker_color=port_colors,
+                         text=[f"{v:+.1f}%" for v in port],
+                         textposition="outside", textfont=dict(size=10, color=TEXT)))
+    fig.update_layout(**PLOTLY, height=260, barmode="group",
+                      xaxis=dict(showgrid=False, linecolor=BORDER),
+                      yaxis=dict(**GRID, ticksuffix="%"))
+    return fig
+
+
+def _risk_contrib_fig(result: dict) -> go.Figure:
+    tickers = result["tickers"]
+    am      = result["asset_metrics"]
+    vals    = [am.get(t, {}).get("risk_contribution", 0) or 0 for t in tickers]
+    total   = sum(abs(v) for v in vals) or 1
+    pct     = [v / total * 100 for v in vals]
+    colors  = [_TICKER_COLORS[i % len(_TICKER_COLORS)] for i in range(len(tickers))]
+    fig = go.Figure(go.Bar(
+        x=pct, y=tickers, orientation="h",
+        marker_color=colors,
+        text=[f"{v:.1f}%" for v in pct],
+        textposition="outside", textfont=dict(size=10, color=TEXT),
+    ))
+    fig.update_layout(**PLOTLY, height=max(200, len(tickers) * 36),
+                      xaxis=dict(**GRID, ticksuffix="%"),
+                      yaxis=dict(showgrid=False, autorange="reversed"))
+    return fig
+
+
+def _ret_contrib_fig(result: dict) -> go.Figure:
+    tickers = result["tickers"]
+    am      = result["asset_metrics"]
+    vals    = [am.get(t, {}).get("return_contribution", 0) or 0 for t in tickers]
+    colors  = [SUCCESS if v >= 0 else DANGER for v in vals]
+    pct     = [v * 100 for v in vals]
+    fig = go.Figure(go.Bar(
+        x=pct, y=tickers, orientation="h",
+        marker_color=colors,
+        text=[f"{v:+.2f}%" for v in pct],
+        textposition="outside", textfont=dict(size=10, color=TEXT),
+    ))
+    fig.update_layout(**PLOTLY, height=max(200, len(tickers) * 36),
+                      xaxis=dict(**GRID, ticksuffix="%"),
+                      yaxis=dict(showgrid=False, autorange="reversed"))
+    return fig
+
+
+def _weight_donut_fig(result: dict) -> go.Figure:
+    tickers = result["tickers"]
+    am      = result["asset_metrics"]
+    weights = [am.get(t, {}).get("weight", 0) or 0 for t in tickers]
+    colors  = [_TICKER_COLORS[i % len(_TICKER_COLORS)] for i in range(len(tickers))]
+    fig = go.Figure(go.Pie(
+        labels=tickers, values=weights,
+        hole=0.55,
+        marker=dict(colors=colors, line=dict(color=CARD, width=2)),
+        textinfo="label+percent",
+        textfont=dict(size=11, color=TEXT),
+        hovertemplate="%{label}: %{percent}<extra></extra>",
+    ))
+    fig.update_layout(**PLOTLY, height=280, showlegend=False)
+    return fig
+
+
 # ── Dashboard tab content ──────────────────────────────────────────────────────
 
 _ALLOC_COLORS = [
@@ -732,7 +810,38 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
     ], style={"display": "flex", "alignItems": "center", "gap": "6px",
               "marginBottom": "14px"})
 
-    return html.Div([kpi, export_strip, frontier, perf, cumret, chart_row, corr_row])
+    # Scenario analysis
+    scenario_panel = html.Div([
+        html.Div([html.Span("Scenario / Stress-Test Analysis", className="chart-title")],
+                 className="chart-header"),
+        dcc.Graph(figure=_scenario_fig(result), config={"displayModeBar": False}),
+    ], className="chart-panel")
+
+    # Weight donut + scenario side by side
+    donut_panel = html.Div([
+        html.Div([html.Span("Portfolio Weights", className="chart-title")],
+                 className="chart-header"),
+        dcc.Graph(figure=_weight_donut_fig(result), config={"displayModeBar": False}),
+    ], className="chart-panel")
+
+    scenario_row = html.Div([donut_panel, scenario_panel], className="chart-row")
+
+    # Risk + Return contribution charts
+    contrib_row = html.Div([
+        html.Div([
+            html.Div([html.Span("Risk Contribution per Asset", className="chart-title")],
+                     className="chart-header"),
+            dcc.Graph(figure=_risk_contrib_fig(result), config={"displayModeBar": False}),
+        ], className="chart-panel"),
+        html.Div([
+            html.Div([html.Span("Return Contribution per Asset", className="chart-title")],
+                     className="chart-header"),
+            dcc.Graph(figure=_ret_contrib_fig(result), config={"displayModeBar": False}),
+        ], className="chart-panel"),
+    ], className="chart-row")
+
+    return html.Div([kpi, export_strip, frontier, perf, cumret, chart_row,
+                     scenario_row, contrib_row, corr_row])
 
 
 # ── Allocation + Optimisation callbacks ───────────────────────────────────────

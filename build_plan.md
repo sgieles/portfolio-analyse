@@ -2,8 +2,8 @@
 
 ## Current status
 
-- **Phase:** 25 — Export & Portfolio Persistence ✅ Complete
-- **Next step:** Phase 26 — TBD
+- **Phase:** 26 — Scenario Analysis + Contribution Charts + Allocation Donut ✅ Complete
+- **Next step:** Phase 27 — TBD
 - **Last updated:** 2026-06-18
 
 ---
@@ -29,6 +29,7 @@
 | 23 | Dash UI Migration (full app rebuild: dark theme, sidebar, Portfolio Hub, Research Hub) | ✅ Done |
 | 24 | Commodities Research Module | ✅ Done |
 | 25 | Export & Portfolio Persistence | ✅ Done |
+| 26 | Scenario Analysis + Risk/Return Contribution + Allocation Donut | ✅ Done |
 
 ---
 
@@ -102,3 +103,4 @@ Complete rebuild of the UI layer from Streamlit to Dash:
 - 2026-06-16 · Infra · Render.com deployment live (https://portfolio-analyse.onrender.com); iPhone PWA support (meta tags, manifest, touch icon); CLAUDE.md cleanup.
 - 2026-06-17 · Phase 24 · Commodities: fetcher (15 tickers), scorer (momentum/trend/volatility/seasonality), commodity_analysis.py page, auto-routing in Research Hub; fixed _render_etf broken streamlit import.
 - 2026-06-18 · Phase 25 · Export & Portfolio Persistence: Save JSON (sidebar 💾), Load JSON via dcc.Upload (sidebar 📂), CSV export (metrics + weights), Excel export (3 sheets: Metrics / Weights / Daily Returns).
+- 2026-06-18 · Phase 26 · Scenario Analysis + Contribution Charts + Donut: run_scenario_analysis wired into analysis_runner; scenario grouped bar chart (market vs portfolio per stress scenario); risk contribution + return contribution horizontal bar charts per asset; portfolio weight donut chart.

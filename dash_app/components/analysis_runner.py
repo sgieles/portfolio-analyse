@@ -35,6 +35,7 @@ from models.asset import Asset
 from models.portfolio import Portfolio
 from models.results import AnalysisResult, AssetMetrics, OptimizationResult
 from models.settings import AnalysisSettings
+from analytics.scenario import run_scenario_analysis
 from optimization.efficient_frontier import build_frontier_data
 from optimization.optimizers import black_litterman, max_sharpe, min_variance
 from services.data_service import DataService
@@ -197,6 +198,26 @@ def run_analysis(pf_data: dict) -> tuple[dict | None, str | None]:
 
     hs, _ = portfolio_health_score(p_sharpe, mdd, p_vol, div_sc, weights)
 
+    # Scenario / stress-test analysis
+    scenarios_out: list[dict] = []
+    try:
+        scenario_results = run_scenario_analysis(
+            daily_returns=rets_a,
+            weights=weights,
+            benchmark_returns=bench_rets_a,
+        )
+        for sr in scenario_results:
+            scenarios_out.append({
+                "name":              sr.name,
+                "market_return":     _safe(sr.market_return),
+                "portfolio_return":  _safe(sr.portfolio_return),
+                "new_value":         _safe(sr.new_value),
+                "stressed_vol":      _safe(sr.stressed_vol),
+                "asset_impacts":     {t: _safe(v) for t, v in sr.asset_impacts.items()},
+            })
+    except Exception:
+        pass
+
     # Serialize returns matrix (needed for correlation chart)
     returns_dict: dict[str, list] = {}
     for col in rets_a.columns:
@@ -232,6 +253,7 @@ def run_analysis(pf_data: dict) -> tuple[dict | None, str | None]:
             "risk":   [_safe(v) for v in frontier_risks],
             "return": [_safe(v) for v in frontier_returns],
         },
+        "scenarios": scenarios_out,
         "tickers": tickers_ok,
         "meta": {
             "period":         period,

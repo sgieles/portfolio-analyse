@@ -50,33 +50,10 @@ def _score_badge(score) -> html.Span:
     return html.Span(f"{score:.0f}", className=f"score-badge {cls}")
 
 
-# ── Research sidebar ───────────────────────────────────────────────────────────
-
-def research_sidebar() -> html.Div:
-    return html.Div([
-        html.Div([
-            html.Div("Research Hub", className="sb-section-title"),
-            html.Div("Fundamentals · Valuation · Insider · Sector",
-                     style={"fontSize": "11px", "color": MUTED, "lineHeight": "1.5"}),
-        ], className="sb-section"),
-        html.Div([
-            html.Div("Quick look-up", className="sb-section-title"),
-            dcc.Input(id="rh-quick-ticker", type="text", placeholder="AAPL",
-                      debounce=True,
-                      style={"width": "100%", "background": "#1c2128", "border": f"1px solid {BORDER}",
-                             "borderRadius": "6px", "color": TEXT, "padding": "7px 10px",
-                             "fontSize": "12px", "fontFamily": "inherit", "outline": "none"}),
-            html.Button("Look up →", id="rh-quick-btn", className="sb-btn", n_clicks=0,
-                        style={"marginTop": "5px"}),
-        ], className="sb-section"),
-    ], className="sidebar")
-
-
 # ── Research Hub main layout ───────────────────────────────────────────────────
 
 def research_hub_layout() -> html.Div:
     return html.Div([
-        research_sidebar(),
         html.Div([
             html.Div([
                 html.Span("Research Hub", className="page-title"),
@@ -152,14 +129,17 @@ def build_watchlists_tab() -> html.Div:
 # ── Company Look-up tab ────────────────────────────────────────────────────────
 
 def build_company_tab() -> html.Div:
+    from utils.ticker_suggestions import ticker_options
     return html.Div([
         html.Div([
-            dcc.Input(id="rh-company-ticker", type="text", placeholder="AAPL",
-                      debounce=True,
-                      style={"flex": 1, "background": "#1c2128", "border": f"1px solid {BORDER}",
-                             "borderRadius": "6px", "color": TEXT, "padding": "8px 12px",
-                             "fontSize": "13px", "fontFamily": "inherit", "outline": "none",
-                             "maxWidth": "280px"}),
+            dcc.Dropdown(
+                id="rh-company-ticker",
+                options=ticker_options(),
+                placeholder="Search ticker or company…",
+                className="dash-dropdown",
+                clearable=True, searchable=True,
+                style={"flex": "1", "maxWidth": "360px"},
+            ),
             html.Button("Look up", id="rh-company-btn", className="sb-btn primary",
                         n_clicks=0, style={"width": "auto", "padding": "8px 20px"}),
         ], style={"display": "flex", "gap": "8px", "marginBottom": "16px", "alignItems": "center"}),
@@ -477,106 +457,292 @@ def _render_fundamentals_tab(ticker: str) -> html.Div:
 
 def _render_valuation_tab(ticker: str) -> html.Div:
     from research.data.fundamentals_fetcher import fetch_fundamentals, fetch_profile
-    from research.analytics.valuation_engine import run_valuation
+    from research.analytics.valuation_engine import (
+        ValuationMultiples, dcf_fair_value, fill_dcf_price,
+        compute_historical_multiples, compute_sector_median, score_valuation,
+    )
+    from research.cache.screener_cache import load_screener_rows
     import yfinance as yf
 
     funds   = fetch_fundamentals(ticker, n_years=5)
     profile = fetch_profile(ticker)
     if not funds:
-        return html.Div("No data.", className="pf-empty")
+        return html.Div("No fundamental data.", className="pf-empty")
 
+    info = yf.Ticker(ticker).info or {}
+
+    def _fi(key): return float(info.get(key) or float("nan"))
+    current_price = _fi("currentPrice") if math.isfinite(_fi("currentPrice")) else _fi("regularMarketPrice")
+
+    # Current multiples from yfinance
+    current = ValuationMultiples(
+        pe=_fi("trailingPE"), forward_pe=_fi("forwardPE"),
+        ev_ebitda=_fi("enterpriseToEbitda"),
+        ps_ratio=_fi("priceToSalesTrailing12Months"),
+        pb_ratio=_fi("priceToBook"),
+    )
+
+    # Historical year-end prices → historical multiples
     try:
-        val = run_valuation(ticker, funds, profile)
-    except Exception as e:
-        return html.Div(f"Valuation error: {e}", style={"color": DANGER, "fontSize": "12px"})
+        hist_raw = yf.Ticker(ticker).history(period="10y", interval="3mo")
+        year_prices = {ts.year: float(row["Close"]) for ts, row in hist_raw.iterrows()}
+    except Exception:
+        year_prices = {}
+    historical = compute_historical_multiples(funds, year_prices)
 
-    price = yf.Ticker(ticker).info.get("currentPrice")
+    # DCF using most recent annual FCF + shares
+    latest = funds[0]
+    dcf = dcf_fair_value(
+        fcf_base=latest.free_cash_flow if math.isfinite(latest.free_cash_flow) else float("nan"),
+        shares=latest.shares_outstanding if math.isfinite(latest.shares_outstanding) else float("nan"),
+    )
+    fill_dcf_price(dcf, current_price)
+
+    # Sector median from screener cache
+    sector_median = ValuationMultiples()
+    sector = profile.sector if profile else None
+    if sector:
+        for u in ("S&P 500", "Nasdaq 100", "STOXX 600", "AEX"):
+            peers = [r for r in (load_screener_rows(u) or []) if r.get("sector") == sector]
+            if peers:
+                sector_median = compute_sector_median(peers)
+                break
+
+    val = score_valuation(ticker, current, historical, sector_median, dcf)
+    mos = dcf.margin_of_safety
+
+    def _price(v):
+        return f"${v:.2f}" if math.isfinite(v) else "—"
 
     cards = html.Div([
-        _score_card("Current Price",  f"${price:.2f}" if price else "—"),
-        _score_card("DCF Intrinsic",  f"${val.dcf_value:.2f}" if val.dcf_value else "—"),
-        _score_card("P/E Fair",       f"${val.pe_fair_value:.2f}" if val.pe_fair_value else "—"),
-        _score_card("Margin of Safety", _p(val.margin_of_safety) if val.margin_of_safety else "—"),
-    ], style={"display": "grid", "gridTemplateColumns": "repeat(4,1fr)", "gap": "10px", "marginBottom": "14px"})
+        _score_card("Valuation Score", val.valuation_score, "0 = expensive · 100 = cheap"),
+        _score_card("Current Price",   _price(current_price)),
+        _score_card("DCF Fair Value",  _price(dcf.fair_value_per_share)),
+        _score_card("Margin of Safety", f"{mos*100:+.1f}%" if math.isfinite(mos) else "—",
+                    "positive = undervalued"),
+        _score_card("vs. History",     val.vs_history),
+        _score_card("vs. Sector",      val.vs_sector),
+    ], style={"display": "grid", "gridTemplateColumns": "repeat(3,1fr)", "gap": "10px", "marginBottom": "14px"})
 
-    return html.Div([cards])
+    # Multiples comparison table
+    mult_data = [
+        ("Trailing P/E",  _n(current.pe),       _n(historical.pe_avg),        _n(sector_median.pe)),
+        ("Forward P/E",   _n(current.forward_pe), "—",                         "—"),
+        ("P/B",           _n(current.pb_ratio),  _n(historical.pb_avg),        _n(sector_median.pb_ratio)),
+        ("P/S",           _n(current.ps_ratio),  _n(historical.ps_avg),        "—"),
+        ("EV/EBITDA",     _n(current.ev_ebitda), "—",                          "—"),
+    ]
+    mult_table = html.Div([
+        html.Div([html.Span("Valuation Multiples", className="chart-title")], className="chart-header"),
+        html.Div(html.Table([
+            html.Thead(html.Tr([html.Th("Multiple"), html.Th("Current"), html.Th("5Y Avg"), html.Th("Sector Median")])),
+            html.Tbody([
+                html.Tr([html.Td(lbl), html.Td(cur, className="num"),
+                         html.Td(h, className="num"), html.Td(s, className="num")])
+                for lbl, cur, h, s in mult_data
+            ]),
+        ], className="data-table"), style={"overflowX": "auto"}),
+    ], className="chart-panel")
+
+    signals = []
+    if val.strengths:
+        signals.append(html.Li(s, style={"color": SUCCESS, "fontSize": "13px", "marginBottom": "4px"})
+                       for s in val.strengths)
+    if val.weaknesses:
+        signals.append(html.Li(s, style={"color": DANGER, "fontSize": "13px", "marginBottom": "4px"})
+                       for s in val.weaknesses)
+
+    return html.Div([cards, mult_table])
 
 
 def _render_insider_tab(ticker: str) -> html.Div:
-    from research.data.insider_fetcher import fetch_insider_trades
+    from research.data.insider_fetcher import fetch_insider_transactions
     from research.analytics.insider_scorer import score_insider_activity
 
-    trades = fetch_insider_trades(ticker)
-    if not trades:
+    df = fetch_insider_transactions(ticker)
+    analysis = score_insider_activity(ticker, df)
+
+    if df.empty:
         return html.Div("No insider trade data available.", className="pf-empty")
 
-    score_result = score_insider_activity(trades)
+    h12 = analysis.h12
+    score_color = SUCCESS if analysis.insider_score >= 65 else DANGER if analysis.insider_score <= 35 else WARNING
 
-    rows = []
-    for t in trades[:20]:
-        rows.append(html.Tr([
-            html.Td(t.filing_date or "—"),
-            html.Td(t.insider_name or "—"),
-            html.Td(t.title or "—"),
-            html.Td(t.transaction_type or "—"),
-            html.Td(f"{t.shares:,.0f}" if t.shares else "—", className="num"),
-            html.Td(f"${t.price_per_share:.2f}" if t.price_per_share else "—", className="num"),
-            html.Td(f"${t.total_value:,.0f}" if t.total_value else "—", className="num"),
+    summary_cards = html.Div([
+        _score_card("Insider Score",   f"{analysis.insider_score:.0f}", analysis.signal),
+        _score_card("12M Buys",        str(h12.n_buys),  f"${h12.value_bought/1e6:.1f}M value"),
+        _score_card("12M Sells",       str(h12.n_sells), f"${h12.value_sold/1e6:.1f}M value"),
+        _score_card("Last Buy",        f"{analysis.days_since_last_buy}d ago"
+                    if analysis.days_since_last_buy >= 0 else "—"),
+        _score_card("Last Sell",       f"{analysis.days_since_last_sell}d ago"
+                    if analysis.days_since_last_sell >= 0 else "—"),
+    ], style={"display": "grid", "gridTemplateColumns": "repeat(5,1fr)",
+              "gap": "10px", "marginBottom": "14px"})
+
+    table_rows = []
+    for _, row in df.head(25).iterrows():
+        date_val = row.get("date")
+        date_str = str(date_val.date()) if hasattr(date_val, "date") else str(date_val or "—")
+        shares   = row.get("shares", 0) or 0
+        value    = row.get("value",  0) or 0
+        txn      = str(row.get("transaction", "—"))
+        color    = SUCCESS if any(k in txn.lower() for k in ("buy", "purchase")) else \
+                   DANGER  if any(k in txn.lower() for k in ("sale", "sell"))    else TEXT
+        table_rows.append(html.Tr([
+            html.Td(date_str),
+            html.Td(str(row.get("insider", "—"))),
+            html.Td(str(row.get("position", "—"))),
+            html.Td(txn, style={"color": color, "fontWeight": "600"}),
+            html.Td(f"{shares:,.0f}", className="num"),
+            html.Td(f"${value:,.0f}", className="num"),
         ]))
 
-    return html.Div([
-        html.Div([
-            _score_card("Insider Score", score_result.score if score_result else None, "0=bearish, 100=bullish"),
-            _score_card("Buy Transactions",  score_result.buy_count if score_result else None),
-            _score_card("Sell Transactions", score_result.sell_count if score_result else None),
-        ], style={"display": "grid", "gridTemplateColumns": "repeat(3,1fr)", "gap": "10px", "marginBottom": "14px"}),
-        html.Div([
-            html.Div([html.Span("Recent Insider Trades", className="chart-title")], className="chart-header"),
-            html.Div(html.Table([
-                html.Thead(html.Tr([
-                    html.Th("Date"), html.Th("Insider"), html.Th("Title"),
-                    html.Th("Type"), html.Th("Shares"), html.Th("Price"), html.Th("Value"),
-                ])),
-                html.Tbody(rows),
-            ], className="data-table"), style={"overflowX": "auto"}),
-        ], className="chart-panel"),
-    ])
+    table = html.Div([
+        html.Div([html.Span("Recent Insider Transactions", className="chart-title")],
+                 className="chart-header"),
+        html.Div(html.Table([
+            html.Thead(html.Tr([
+                html.Th("Date"), html.Th("Insider"), html.Th("Role"),
+                html.Th("Transaction"), html.Th("Shares"), html.Th("Value ($)"),
+            ])),
+            html.Tbody(table_rows),
+        ], className="data-table"), style={"overflowX": "auto"}),
+    ], className="chart-panel")
+
+    return html.Div([summary_cards, table])
 
 
 def _render_report_tab(ticker: str) -> html.Div:
-    from research.data.fundamentals_fetcher import fetch_fundamentals, fetch_quarterly, fetch_profile
+    from research.data.fundamentals_fetcher import fetch_fundamentals, fetch_profile
+    from research.data.insider_fetcher import fetch_insider_transactions
     from research.analytics.fundamental_scorer import score_fundamentals
+    from research.analytics.insider_scorer import score_insider_activity
+    from research.analytics.technical_scorer import score_technical
     from research.analytics.thesis_generator import generate_thesis
+    import yfinance as yf
 
-    funds    = fetch_fundamentals(ticker, n_years=5)
-    quarters = fetch_quarterly(ticker, n_quarters=8)
-    profile  = fetch_profile(ticker)
-    analysis = score_fundamentals(ticker, funds) if funds else None
-    thesis   = generate_thesis(ticker, funds, analysis, profile) if funds else None
+    funds   = fetch_fundamentals(ticker, n_years=5)
+    profile = fetch_profile(ticker)
+    if not funds:
+        return html.Div("No fundamental data — cannot generate thesis.", className="pf-empty")
 
-    if not thesis:
-        return html.Div("Could not generate thesis.", className="pf-empty")
+    analysis = score_fundamentals(ticker, funds)
+    fund_score = float(analysis.fundamental_score) if analysis and analysis.fundamental_score is not None else 50.0
 
-    bullets = [html.Li(b, style={"marginBottom": "6px"}) for b in (thesis.bullets or [])]
-    risks   = [html.Li(r, style={"marginBottom": "6px"}) for r in (thesis.risks or [])]
+    # Insider score
+    ins_df   = fetch_insider_transactions(ticker)
+    ins_ana  = score_insider_activity(ticker, ins_df)
+    insider_score = float(ins_ana.insider_score)
 
-    return html.Div([
+    # Technical score from recent price history
+    try:
+        price_hist = yf.Ticker(ticker).history(period="1y")
+        tech_ana   = score_technical(ticker, price_hist)
+        tech_score = float(tech_ana.score)
+        tech_signal = tech_ana.signal
+        ta = tech_ana
+    except Exception:
+        tech_score = 50.0
+        tech_signal = "Neutral"
+        ta = None
+
+    # Sector score — try from screener cache peers
+    from research.cache.screener_cache import load_screener_rows
+    sector = profile.sector if profile else None
+    sector_score = 50.0
+    if sector:
+        scores = []
+        for u in ("S&P 500", "Nasdaq 100", "STOXX 600", "AEX"):
+            for r in (load_screener_rows(u) or []):
+                if r.get("sector") == sector:
+                    v = r.get("fundamental_score")
+                    if v is not None:
+                        scores.append(float(v))
+        if scores:
+            sector_score = sum(scores) / len(scores)
+
+    # Valuation score (best-effort; use 50 if data missing)
+    val_score = 50.0
+    try:
+        from research.analytics.valuation_engine import (
+            ValuationMultiples, dcf_fair_value, fill_dcf_price,
+            compute_historical_multiples, score_valuation,
+        )
+        info = yf.Ticker(ticker).info or {}
+        def _fi(k): return float(info.get(k) or float("nan"))
+        current_price = _fi("currentPrice") if math.isfinite(_fi("currentPrice")) else _fi("regularMarketPrice")
+        current = ValuationMultiples(
+            pe=_fi("trailingPE"), forward_pe=_fi("forwardPE"),
+            pb_ratio=_fi("priceToBook"), ps_ratio=_fi("priceToSalesTrailing12Months"),
+        )
+        hist_raw   = yf.Ticker(ticker).history(period="5y", interval="3mo")
+        year_prices = {ts.year: float(r["Close"]) for ts, r in hist_raw.iterrows()}
+        historical  = compute_historical_multiples(funds, year_prices)
+        dcf = fill_dcf_price(dcf_fair_value(funds[0].free_cash_flow, funds[0].shares_outstanding), current_price)
+        from research.analytics.valuation_engine import ValuationMultiples as _VM
+        val = score_valuation(ticker, current, historical, _VM(), dcf)
+        val_score = float(val.valuation_score) if math.isfinite(val.valuation_score) else 50.0
+    except Exception:
+        pass
+
+    thesis = generate_thesis(
+        company_name   = profile.name or ticker if profile else ticker,
+        sector         = sector or "Unknown",
+        fund_score     = fund_score,
+        val_score      = val_score,
+        tech_score     = tech_score,
+        sector_score   = sector_score,
+        insider_score  = insider_score,
+        strengths      = list(analysis.strengths)  if analysis and hasattr(analysis, "strengths")  else [],
+        weaknesses     = list(analysis.weaknesses) if analysis and hasattr(analysis, "weaknesses") else [],
+        tech_signal    = tech_signal,
+        insider_signal = ins_ana.signal,
+        n_buys         = ins_ana.h12.n_buys,
+        n_sells        = ins_ana.h12.n_sells,
+        ta             = ta,
+    )
+
+    score_color = SUCCESS if thesis.overall_score >= 65 else WARNING if thesis.overall_score >= 40 else DANGER
+
+    score_row = html.Div([
+        _score_card("Overall Score",   f"{thesis.overall_score:.0f} / 100", thesis.verdict_label),
+        _score_card("Fundamentals",    f"{fund_score:.0f}",  "30% weight"),
+        _score_card("Valuation",       f"{val_score:.0f}",   "25% weight"),
+        _score_card("Technical",       f"{tech_score:.0f}",  f"20% · {tech_signal}"),
+        _score_card("Sector",          f"{sector_score:.0f}", "15% weight"),
+        _score_card("Insider",         f"{insider_score:.0f}", f"10% · {ins_ana.signal}"),
+    ], style={"display": "grid", "gridTemplateColumns": "repeat(6,1fr)",
+              "gap": "10px", "marginBottom": "14px"})
+
+    def _para(text: str) -> html.P:
+        return html.P(text, style={"fontSize": "13px", "color": TEXT,
+                                   "lineHeight": "1.65", "marginBottom": "10px"})
+
+    paragraphs = []
+    for attr in ("verdict_rationale", "quality_paragraph", "valuation_paragraph",
+                 "technical_paragraph", "sector_paragraph", "insider_paragraph"):
+        txt = getattr(thesis, attr, None)
+        if txt:
+            paragraphs.append(_para(txt))
+
+    thesis_panel = html.Div([
         html.Div([
-            html.Div("Overall Score", className="kpi-label"),
-            html.Div(f"{thesis.overall_score:.0f} / 100",
-                     className="kpi-value",
-                     style={"color": SUCCESS if thesis.overall_score >= 65 else WARNING if thesis.overall_score >= 40 else DANGER}),
-        ], className="kpi-card", style={"display": "inline-block", "marginBottom": "14px", "minWidth": "120px"}),
-        html.Div([
-            html.Div([html.Span("Thesis", className="chart-title")], className="chart-header"),
-            html.P(thesis.summary or "", style={"fontSize": "13px", "color": TEXT, "lineHeight": "1.6", "marginBottom": "12px"}),
-            html.Ul(bullets, style={"paddingLeft": "18px", "fontSize": "13px", "color": MUTED, "lineHeight": "1.7"}),
-        ], className="chart-panel"),
-        html.Div([
-            html.Div([html.Span("Key Risks", className="chart-title")], className="chart-header"),
-            html.Ul(risks, style={"paddingLeft": "18px", "fontSize": "13px", "color": MUTED, "lineHeight": "1.7"}),
-        ], className="chart-panel") if risks else None,
-    ])
+            html.Span("Investment Thesis", className="chart-title"),
+            html.Span(f"  —  {thesis.verdict_label}",
+                      style={"color": score_color, "fontWeight": "700", "fontSize": "13px"}),
+        ], className="chart-header"),
+        *paragraphs,
+    ], className="chart-panel")
+
+    risk_items = thesis.risk_bullets if hasattr(thesis, "risk_bullets") and thesis.risk_bullets else []
+    risk_panel = html.Div([
+        html.Div([html.Span("Key Risks", className="chart-title")], className="chart-header"),
+        html.Ul([html.Li(r, style={"fontSize": "13px", "color": MUTED, "marginBottom": "5px"})
+                 for r in risk_items],
+                style={"paddingLeft": "18px"}),
+    ], className="chart-panel") if risk_items else html.Div()
+
+    return html.Div([score_row, thesis_panel, risk_panel])
 
 
 # ── Sector renderer ────────────────────────────────────────────────────────────
@@ -649,8 +815,7 @@ def _render_sector(sector: str) -> html.Div:
                 name="S&P 500 (SPY)", line=dict(color=BLUE, width=1.5, dash="dot"),
             ))
         fig.update_layout(**PLOTLY, height=250,
-                          xaxis=dict(**GRID), yaxis=dict(**GRID),
-                          legend=dict(bgcolor="rgba(0,0,0,0)"))
+                          xaxis=dict(**GRID), yaxis=dict(**GRID))
         charts.append(html.Div([
             html.Div([html.Span(f"{sector} — Price vs. S&P 500 (1Y, rebased to 100)",
                                 className="chart-title")], className="chart-header"),
@@ -850,21 +1015,13 @@ def run_screener_callback(n, universe):
 @callback(
     Output("rh-company-content", "children"),
     Input("rh-company-btn", "n_clicks"),
-    Input("rh-quick-btn", "n_clicks"),
     State("rh-company-ticker", "value"),
-    State("rh-quick-ticker", "value"),
     prevent_initial_call=True,
 )
-def lookup_company(n1, n2, ticker1, ticker2):
-    from dash import callback_context
-    ctx = callback_context
-    if not ctx.triggered:
+def lookup_company(n, ticker):
+    if not n or not ticker:
         return no_update
-    trigger = ctx.triggered[0]["prop_id"]
-    ticker = (ticker2 if "quick" in trigger else ticker1 or "").strip().upper()
-    if not ticker:
-        return no_update
-
+    ticker = ticker.strip().upper()
     try:
         return _render_company(ticker)
     except Exception as exc:

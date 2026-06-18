@@ -201,6 +201,7 @@ def portfolio_hub_layout() -> html.Div:
         ], className="main"),
         dcc.Download(id="export-csv-download"),
         dcc.Download(id="export-excel-download"),
+        dcc.Download(id="export-pdf-download"),
     ], className="app-body")
 
 
@@ -383,7 +384,7 @@ def _risk_contrib_fig(result: dict) -> go.Figure:
         text=[f"{v:.1f}%" for v in pct],
         textposition="outside", textfont=dict(size=10, color=TEXT),
     ))
-    fig.update_layout(**PLOTLY, height=max(200, len(tickers) * 36),
+    fig.update_layout(**PLOTLY, height=max(240, len(tickers) * 40),
                       xaxis=dict(**GRID, ticksuffix="%"),
                       yaxis=dict(showgrid=False, autorange="reversed"))
     return fig
@@ -401,7 +402,7 @@ def _ret_contrib_fig(result: dict) -> go.Figure:
         text=[f"{v:+.2f}%" for v in pct],
         textposition="outside", textfont=dict(size=10, color=TEXT),
     ))
-    fig.update_layout(**PLOTLY, height=max(200, len(tickers) * 36),
+    fig.update_layout(**PLOTLY, height=max(240, len(tickers) * 40),
                       xaxis=dict(**GRID, ticksuffix="%"),
                       yaxis=dict(showgrid=False, autorange="reversed"))
     return fig
@@ -803,10 +804,12 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
     export_strip = html.Div([
         html.Span("Export", style={"fontSize": "11px", "color": MUTED,
                                    "fontWeight": "600", "marginRight": "8px"}),
-        html.Button("CSV", id="export-csv-btn", className="sb-btn",
-                    n_clicks=0, style={"padding": "4px 14px", "fontSize": "11px"}),
+        html.Button("CSV",   id="export-csv-btn",   className="sb-btn",
+                    n_clicks=0, style={"padding": "4px 14px", "fontSize": "11px", "width": "auto"}),
         html.Button("Excel", id="export-excel-btn", className="sb-btn",
-                    n_clicks=0, style={"padding": "4px 14px", "fontSize": "11px"}),
+                    n_clicks=0, style={"padding": "4px 14px", "fontSize": "11px", "width": "auto"}),
+        html.Button("PDF",   id="export-pdf-btn",   className="sb-btn",
+                    n_clicks=0, style={"padding": "4px 14px", "fontSize": "11px", "width": "auto"}),
     ], style={"display": "flex", "alignItems": "center", "gap": "6px",
               "marginBottom": "14px"})
 
@@ -1326,3 +1329,19 @@ def export_excel(n, result, pf_data):
             rets_df.to_excel(writer, sheet_name="Daily Returns")
     buf.seek(0)
     return dcc.send_bytes(buf.read(), filename=f"{name}_analysis.xlsx")
+
+
+@callback(
+    Output("export-pdf-download", "data"),
+    Input("export-pdf-btn", "n_clicks"),
+    State("result-store", "data"),
+    State("pf-store", "data"),
+    prevent_initial_call=True,
+)
+def export_pdf(n, result, pf_data):
+    if not n or not result:
+        return no_update
+    from dash_app.components.pdf_exporter import generate_pdf
+    name = (pf_data or {}).get("name", "portfolio").lower().replace(" ", "_")
+    pdf_bytes = generate_pdf(result, pf_data)
+    return dcc.send_bytes(pdf_bytes, filename=f"{name}_report.pdf")

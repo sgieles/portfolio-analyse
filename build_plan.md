@@ -2,8 +2,8 @@
 
 ## Current status
 
-- **Phase:** 26 — Scenario Analysis + Contribution Charts + Allocation Donut ✅ Complete
-- **Next step:** Phase 27 — TBD
+- **Phase:** 28 — Research Hub Bugfix Sprint ✅ Complete
+- **Next step:** Phase 29 — Research Hub Screener Overhaul
 - **Last updated:** 2026-06-18
 
 ---
@@ -30,12 +30,73 @@
 | 24 | Commodities Research Module | ✅ Done |
 | 25 | Export & Portfolio Persistence | ✅ Done |
 | 26 | Scenario Analysis + Risk/Return Contribution + Allocation Donut | ✅ Done |
+| 27 | PDF Export + UI Polish | ✅ Done |
+| 28 | Research Hub — Bugfix Sprint | ✅ Done |
+| 29 | Research Hub — Screener Overhaul (full market scan + heatmap) | 🔜 Planned |
 
 ---
 
 ## Open questions
 
 *None currently open. Add items here before starting the relevant phase.*
+
+---
+
+## Phase 28 — Research Hub: Bugfix Sprint 🔜
+
+All issues block normal Research Hub use; fix in one focused sprint before any feature work.
+
+### Critical bugs (errors shown in production)
+
+- [ ] **Screener tab blank** — Tab renders empty; "Quick look-up" button does nothing. Likely callback wiring or missing `Output` ID. Diagnose and fix.
+- [ ] **Valuation import error** — `cannot import name 'run_valuation' from 'research.analytics.valuation_engine'`. Either the function was renamed or the Dash layout calls the wrong name. Align the import.
+- [ ] **Insider Activity import error** — `cannot import name 'fetch_insider_trades' from 'research.data.insider_fetcher'`. Same pattern — align the import to the actual function name.
+- [ ] **Research report args error** — `generate_thesis() missing 3 required positional arguments: 'tech_score', 'sector_score', 'insider_score'`. The call site in `research_hub.py` must pass all required arguments.
+- [ ] **Sector Intel legend error** — `update_layout() got multiple values for keyword argument 'legend'`. A chart helper passes `legend=...` both via `**PLOTLY` and explicitly. Remove the duplicate.
+
+### UX fixes (not errors but clearly broken)
+
+- [ ] **Remove Research Hub left sidebar** — The fixed left panel with a symbol input field is redundant; the Company Look-Up tab already handles this. Remove the sidebar entirely; Research Hub should be full-width content like the tab-based layout implies.
+- [ ] **Company Look-Up input: autocomplete** — Replace the plain text input with the same `dcc.Dropdown` + ticker suggestion list used in Portfolio Hub (`ticker_options()` from `utils.ticker_suggestions`), so users get symbol suggestions while typing.
+
+### Acceptance criteria
+
+- All five error messages no longer appear.
+- Screener tab shows its UI immediately on load.
+- Research Hub has no left sidebar; all content fills the main area.
+- Company Look-Up symbol field shows autocomplete suggestions.
+
+---
+
+## Phase 29 — Research Hub: Screener Overhaul 🔜
+
+Builds on Phase 28 (screener must render correctly first).
+
+### Features
+
+- [ ] **Full-market scan** — Screener fetches and scores *every* symbol in the selected universe (AEX, S&P 500, DAX, STOXX 600, Nasdaq 100). Uses the existing `screener_cache.py` daily cache so repeated loads are instant.
+- [ ] **Heatmap-coloured table** — Each numeric column in the screener results table is colour-coded relative to the column's min/max across all rows (green = high, red = low, neutral = mid). Implemented as inline `background` styles on `<td>` cells, not a Plotly chart — keeps the table interactive (sort/filter).
+- [ ] **Sort & filter controls** — Click column headers to sort; a filter row (score ≥ threshold, sector dropdown) narrows the list without a full re-fetch.
+- [ ] **Quick look-up still works** — Single-symbol look-up routes to the Company Look-Up tab as before.
+
+### Column set for heatmap
+
+| Column | Direction | Notes |
+|--------|-----------|-------|
+| Score (0–100) | higher = green | composite |
+| P/E | lower = green | skip if negative |
+| P/B | lower = green | |
+| Revenue growth | higher = green | |
+| Profit margin | higher = green | |
+| Dividend yield | higher = green | 0 = neutral, not red |
+| Beta | — | informational only, no colour |
+| 52w return | higher = green | |
+
+### Acceptance criteria
+
+- Screener loads full market data for all universes with the cache; first load may be slow, subsequent loads instant.
+- Table rows are colour-coded per column with visible green/red gradient.
+- Sorting by any column works client-side (no re-fetch).
 
 ---
 
@@ -104,3 +165,5 @@ Complete rebuild of the UI layer from Streamlit to Dash:
 - 2026-06-17 · Phase 24 · Commodities: fetcher (15 tickers), scorer (momentum/trend/volatility/seasonality), commodity_analysis.py page, auto-routing in Research Hub; fixed _render_etf broken streamlit import.
 - 2026-06-18 · Phase 25 · Export & Portfolio Persistence: Save JSON (sidebar 💾), Load JSON via dcc.Upload (sidebar 📂), CSV export (metrics + weights), Excel export (3 sheets: Metrics / Weights / Daily Returns).
 - 2026-06-18 · Phase 26 · Scenario Analysis + Contribution Charts + Donut: run_scenario_analysis wired into analysis_runner; scenario grouped bar chart (market vs portfolio per stress scenario); risk contribution + return contribution horizontal bar charts per asset; portfolio weight donut chart.
+- 2026-06-18 · Phase 28 · Research Hub Bugfix Sprint: removed redundant left sidebar; replaced company look-up plain input with autocomplete Dropdown (ticker_options); fixed _render_valuation_tab (run_valuation → score_valuation + dcf_fair_value + compute_historical_multiples); fixed _render_insider_tab (fetch_insider_trades → fetch_insider_transactions, score_insider_activity(ticker, df)); fixed _render_report_tab (generate_thesis now called with all 7 required positional args); fixed sector Intel duplicate legend kwarg (PLOTLY already contains legend); risk_bullets attribute fix.
+- 2026-06-18 · Phase 27 · PDF Export + UI Polish: pdf_exporter.py (reportlab Platypus, cover/metrics/weights/per-asset/optimization/scenario/notes sections, dark-header tables, page footer); PDF button added to export strip; tooltip max-width + edge-card clip fix; KPI grid minmax(0,1fr); contribution chart min-height raised to 240px; export button width: auto fix.

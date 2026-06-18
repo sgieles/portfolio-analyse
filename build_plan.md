@@ -2,9 +2,9 @@
 
 ## Current status
 
-- **Phase:** 24 — Commodities Research Module ✅ Complete
-- **Next step:** Phase 25 — TBD
-- **Last updated:** 2026-06-17
+- **Phase:** 25 — Export & Portfolio Persistence ✅ Complete
+- **Next step:** Phase 26 — TBD
+- **Last updated:** 2026-06-18
 
 ---
 
@@ -28,6 +28,7 @@
 | 22 | ETF Research Module (profile, scorer, analysis page, auto-routing) | ✅ Done |
 | 23 | Dash UI Migration (full app rebuild: dark theme, sidebar, Portfolio Hub, Research Hub) | ✅ Done |
 | 24 | Commodities Research Module | ✅ Done |
+| 25 | Export & Portfolio Persistence | ✅ Done |
 
 ---
 
@@ -100,3 +101,4 @@ Complete rebuild of the UI layer from Streamlit to Dash:
 - 2026-06-16 · Phase 23 · Full Dash migration: dark Bloomberg UI, sidebar, Portfolio Hub (dashboard/asset analysis/Monte Carlo), Research Hub (screener/watchlists/company/sector). Entry: python dash_app/app.py.
 - 2026-06-16 · Infra · Render.com deployment live (https://portfolio-analyse.onrender.com); iPhone PWA support (meta tags, manifest, touch icon); CLAUDE.md cleanup.
 - 2026-06-17 · Phase 24 · Commodities: fetcher (15 tickers), scorer (momentum/trend/volatility/seasonality), commodity_analysis.py page, auto-routing in Research Hub; fixed _render_etf broken streamlit import.
+- 2026-06-18 · Phase 25 · Export & Portfolio Persistence: Save JSON (sidebar 💾), Load JSON via dcc.Upload (sidebar 📂), CSV export (metrics + weights), Excel export (3 sheets: Metrics / Weights / Daily Returns).

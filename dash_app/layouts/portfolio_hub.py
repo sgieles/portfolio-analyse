@@ -151,6 +151,25 @@ def portfolio_sidebar(pf_data: dict | None) -> html.Div:
             ], className="setting-row"),
         ], className="sb-section"),
 
+        # ── Save / Load ───────────────────────────────────────────────────────
+        html.Div([
+            html.Div("Save / Load", className="sb-section-title"),
+            html.Div([
+                html.Button("💾 Save", id="pf-save-btn", className="sb-btn",
+                            n_clicks=0, style={"flex": 1}),
+                dcc.Upload(
+                    id="pf-upload",
+                    children=html.Button("📂 Load", className="sb-btn",
+                                         style={"width": "100%"}),
+                    accept=".json",
+                    style={"flex": 1},
+                ),
+            ], className="btn-row"),
+            dcc.Download(id="pf-download"),
+            html.Div(id="pf-load-status", style={"fontSize": "11px", "color": MUTED,
+                                                  "marginTop": "4px", "textAlign": "center"}),
+        ], className="sb-section"),
+
         # ── Actions ───────────────────────────────────────────────────────────
         html.Div([
             html.Button("▶  Analyse Portfolio", id="pf-analyse-btn",
@@ -180,6 +199,8 @@ def portfolio_hub_layout() -> html.Div:
                 type="circle", color=ACCENT,
             ),
         ], className="main"),
+        dcc.Download(id="export-csv-download"),
+        dcc.Download(id="export-excel-download"),
     ], className="app-body")
 
 
@@ -701,7 +722,17 @@ def build_dashboard(result: dict, period: str = "All") -> html.Div:
         ], className="chart-row"),
     ])
 
-    return html.Div([kpi, frontier, perf, cumret, chart_row, corr_row])
+    export_strip = html.Div([
+        html.Span("Export", style={"fontSize": "11px", "color": MUTED,
+                                   "fontWeight": "600", "marginRight": "8px"}),
+        html.Button("CSV", id="export-csv-btn", className="sb-btn",
+                    n_clicks=0, style={"padding": "4px 14px", "fontSize": "11px"}),
+        html.Button("Excel", id="export-excel-btn", className="sb-btn",
+                    n_clicks=0, style={"padding": "4px 14px", "fontSize": "11px"}),
+    ], style={"display": "flex", "alignItems": "center", "gap": "6px",
+              "marginBottom": "14px"})
+
+    return html.Div([kpi, export_strip, frontier, perf, cumret, chart_row, corr_row])
 
 
 # ── Allocation + Optimisation callbacks ───────────────────────────────────────
@@ -1040,3 +1071,156 @@ def update_perf_chart(period, result):
     if not result:
         return go.Figure()
     return _perf_fig(result, period)
+
+
+# ── Save / Load portfolio JSON ─────────────────────────────────────────────────
+
+@callback(
+    Output("pf-download", "data"),
+    Input("pf-save-btn", "n_clicks"),
+    State("pf-store", "data"),
+    prevent_initial_call=True,
+)
+def save_portfolio_json(n, pf_data):
+    import json as _json
+    if not n or not pf_data or not pf_data.get("tickers"):
+        return no_update
+    name = pf_data.get("name", "portfolio").lower().replace(" ", "_")
+    return dcc.send_string(_json.dumps(pf_data, indent=2), filename=f"{name}.json")
+
+
+@callback(
+    Output("pf-store", "data", allow_duplicate=True),
+    Output("pf-load-status", "children"),
+    Input("pf-upload", "contents"),
+    State("pf-upload", "filename"),
+    prevent_initial_call=True,
+)
+def load_portfolio_json(contents, filename):
+    import base64 as _b64, json as _json
+    if not contents:
+        return no_update, ""
+    try:
+        _, content_string = contents.split(",", 1)
+        data = _json.loads(_b64.b64decode(content_string).decode("utf-8"))
+        pf_data = {
+            "tickers":   data.get("tickers", []),
+            "weights":   data.get("weights", {}),
+            "benchmark": data.get("benchmark", "SPY"),
+            "period":    data.get("period", "5y"),
+            "rf_rate":   data.get("rf_rate", 0.025),
+            "name":      data.get("name", "My Portfolio"),
+        }
+        n = len(pf_data["tickers"])
+        return pf_data, html.Span(f"✓ {n} tickers geladen", style={"color": SUCCESS})
+    except Exception as exc:
+        return no_update, html.Span(f"✗ {exc}", style={"color": DANGER})
+
+
+# ── CSV / Excel export ─────────────────────────────────────────────────────────
+
+@callback(
+    Output("export-csv-download", "data"),
+    Input("export-csv-btn", "n_clicks"),
+    State("result-store", "data"),
+    State("pf-store", "data"),
+    prevent_initial_call=True,
+)
+def export_csv(n, result, pf_data):
+    import io as _io
+    if not n or not result:
+        return no_update
+    s = result["scalars"]
+    bench = result["meta"]["benchmark"]
+    rf = (result["meta"].get("rf_rate") or 0.025) * 100
+    rows = [
+        ("CAGR",                    _p(s.get("portfolio_cagr"))),
+        ("Ann. Return",             _p(s.get("portfolio_return"))),
+        ("CAPM Expected Return",    _p(s.get("portfolio_expected_return_capm"))),
+        ("Volatility (ann.)",       _p(s.get("portfolio_volatility"))),
+        ("Sharpe Ratio",            _n(s.get("sharpe_ratio"))),
+        ("Sortino Ratio",           _n(s.get("sortino_ratio"))),
+        (f"Beta (vs {bench})",      _n(s.get("beta"))),
+        ("Max Drawdown",            _p(s.get("max_drawdown"))),
+        ("VaR 95%",                 _p(s.get("var_95"))),
+        ("CVaR (ES)",               _p(s.get("cvar"))),
+        ("Health Score",            str(s.get("health_score", "—"))),
+        ("Avg Correlation",         _n(s.get("avg_correlation"))),
+        ("Diversification Score",   _n(s.get("diversification_score") or 0, 3)),
+        ("Risk-free Rate",          f"{rf:.1f}%"),
+        ("Benchmark",               bench),
+        ("Period",                  result["meta"]["period"]),
+    ]
+    buf = _io.StringIO()
+    buf.write("Metric,Value\n")
+    for label, val in rows:
+        buf.write(f"{label},{val}\n")
+    buf.write("\nTicker,Weight\n")
+    for t in result["tickers"]:
+        w = (pf_data or {}).get("weights", {}).get(t, "—")
+        buf.write(f"{t},{w if isinstance(w, str) else f'{w*100:.2f}%'}\n")
+    name = (pf_data or {}).get("name", "portfolio").lower().replace(" ", "_")
+    return dcc.send_string(buf.getvalue(), filename=f"{name}_metrics.csv")
+
+
+@callback(
+    Output("export-excel-download", "data"),
+    Input("export-excel-btn", "n_clicks"),
+    State("result-store", "data"),
+    State("pf-store", "data"),
+    prevent_initial_call=True,
+)
+def export_excel(n, result, pf_data):
+    import io as _io
+    import pandas as _pd
+    if not n or not result:
+        return no_update
+    s     = result["scalars"]
+    bench = result["meta"]["benchmark"]
+    name  = (pf_data or {}).get("name", "portfolio").lower().replace(" ", "_")
+
+    # Sheet 1 — Portfolio Metrics
+    metrics = _pd.DataFrame([
+        ("CAGR",                    _p(s.get("portfolio_cagr"))),
+        ("Ann. Return",             _p(s.get("portfolio_return"))),
+        ("CAPM Expected Return",    _p(s.get("portfolio_expected_return_capm"))),
+        ("Volatility (ann.)",       _p(s.get("portfolio_volatility"))),
+        ("Sharpe Ratio",            _n(s.get("sharpe_ratio"))),
+        ("Sortino Ratio",           _n(s.get("sortino_ratio"))),
+        (f"Beta (vs {bench})",      _n(s.get("beta"))),
+        ("Max Drawdown",            _p(s.get("max_drawdown"))),
+        ("VaR 95%",                 _p(s.get("var_95"))),
+        ("CVaR (ES)",               _p(s.get("cvar"))),
+        ("Health Score",            str(s.get("health_score", "—"))),
+        ("Avg Correlation",         _n(s.get("avg_correlation"))),
+        ("Diversification Score",   _n(s.get("diversification_score") or 0, 3)),
+        ("Benchmark",               bench),
+        ("Period",                  result["meta"]["period"]),
+    ], columns=["Metric", "Value"])
+
+    # Sheet 2 — Asset Weights
+    weights_rows = []
+    cur_w = result["optimization"].get("current", {}).get("weights", {})
+    ms_w  = result["optimization"].get("max_sharpe",  {}).get("weights", {})
+    mv_w  = result["optimization"].get("min_variance", {}).get("weights", {})
+    for t in result["tickers"]:
+        weights_rows.append({
+            "Ticker":        t,
+            "Current":       f"{cur_w.get(t, 0)*100:.2f}%",
+            "Max Sharpe":    f"{ms_w.get(t, 0)*100:.2f}%" if ms_w else "—",
+            "Min Variance":  f"{mv_w.get(t, 0)*100:.2f}%" if mv_w else "—",
+        })
+    weights = _pd.DataFrame(weights_rows)
+
+    # Sheet 3 — Daily Returns
+    rets_dict = result.get("returns", {})
+    rets_df = _pd.DataFrame(rets_dict) if rets_dict else _pd.DataFrame()
+
+    buf = _io.BytesIO()
+    with _pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        metrics.to_excel(writer, sheet_name="Metrics",       index=False)
+        weights.to_excel(writer, sheet_name="Weights",       index=False)
+        if not rets_df.empty:
+            rets_df.to_excel(writer, sheet_name="Daily Returns")
+    buf.seek(0)
+    return dcc.send_bytes(buf.read(), filename=f"{name}_analysis.xlsx")
